@@ -81,8 +81,11 @@ func findFieldInTd(field FieldType, desc *TupleDesc) (int, error) {
 // another slice object does not make a copy of the contents of the slice.
 // Look at the built-in function "copy".
 func (td *TupleDesc) copy() *TupleDesc {
-	// TODO: some code goes here
-	return &TupleDesc{} //replace me
+	newFields := make([]FieldType, len(td.Fields))
+	copy(newFields, td.Fields)
+	return &TupleDesc{
+		Fields: newFields,
+	}
 }
 
 // Assign the TableQualifier of every field in the TupleDesc to be the
@@ -101,8 +104,10 @@ func (td *TupleDesc) setTableAlias(alias string) {
 // should consist of the fields of desc2
 // appended onto the fields of desc.
 func (desc *TupleDesc) merge(desc2 *TupleDesc) *TupleDesc {
-	// TODO: some code goes here
-	return &TupleDesc{} //replace me
+	combinedField := append(desc.Fields, desc2.Fields...)
+	return &TupleDesc{
+		Fields: combinedField,
+	}
 }
 
 // ================== Tuple Methods ======================
@@ -226,14 +231,20 @@ func readTupleFrom(b *bytes.Buffer, desc *TupleDesc) (*Tuple, error) {
 // the [TupleDesc.equals] method, but fields can be compared directly with equality
 // operators.
 func (t1 *Tuple) equals(t2 *Tuple) bool {
-	// TODO: some code goes here
 	return t1.Desc.equals(&t2.Desc) && reflect.DeepEqual(t1.Fields, t2.Fields) && t1.Rid == t2.Rid
 }
 
 // Merge two tuples together, producing a new tuple with the fields of t2 appended to t1.
 func joinTuples(t1 *Tuple, t2 *Tuple) *Tuple {
+	// merge(desc2 *TupleDesc) cần 1 contror, nên dùng & để lấy địa chỉ, truyền như 1 con trỏ.
+	combinedDesc := t1.Desc.merge(&t2.Desc)
+	combinedField := append(t1.Fields, t2.Fields...)
 	// TODO: some code goes here
-	return &Tuple{}
+	return &Tuple{
+		// combinedDesc là 1 con trỏ, nên cần de-reference nó bằng *
+		Desc:   *combinedDesc,
+		Fields: combinedField,
+	}
 }
 
 type orderByState int
@@ -312,7 +323,6 @@ func (t *Tuple) project(fields []FieldType) (*Tuple, error) {
 		res.Fields = append(res.Fields, t.Fields[matchIdx])
 		res.Desc.Fields = append(res.Desc.Fields, t.Desc.Fields[matchIdx])
 	}
-	// TODO: some code goes here
 	return res, nil //replace me
 }
 
