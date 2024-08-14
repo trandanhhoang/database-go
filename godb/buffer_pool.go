@@ -1,5 +1,7 @@
 package godb
 
+import "log"
+
 //BufferPool provides methods to cache pages that have been read from disk.
 //It has a fixed capacity to limit the total amount of memory used by GoDB.
 //It is also the primary way in which transactions are enforced, by using page
@@ -15,12 +17,20 @@ const (
 
 type BufferPool struct {
 	// TODO: some code goes here
+	// max page can saved
+	numPages int
+	size     int
+	// Giả sử chỉ có 1 bufferpool duy nhất cho DB.
+	pages map[DBFile]map[int]*Page // DBFile -> pageNo -> Page
 }
 
 // Create a new BufferPool with the specified number of pages
 func NewBufferPool(numPages int) *BufferPool {
 	// TODO: some code goes here
-	return &BufferPool{}
+	return &BufferPool{
+		numPages: numPages,
+		pages:    make(map[DBFile]map[int]*Page),
+	}
 }
 
 // Testing method -- iterate through all pages in the buffer pool
@@ -62,6 +72,21 @@ func (bp *BufferPool) BeginTransaction(tid TransactionID) error {
 // one of the transactions in the deadlock]. You will likely want to store a list
 // of pages in the BufferPool in a map keyed by the [DBFile.pageKey].
 func (bp *BufferPool) GetPage(file DBFile, pageNo int, tid TransactionID, perm RWPerm) (*Page, error) {
-	// TODO: some code goes here
-	return nil, nil
+	// Nếu trang đã có trong bộ nhớ đệm, trả về trang đó
+	if page, ok := bp.pages[file][pageNo]; ok {
+		return page, nil
+	}
+	page, err := file.readPage(pageNo)
+	if err != nil {
+		return nil, err
+	}
+
+	if bp.size == bp.numPages {
+		// evict page
+		log.Println("TODO: evict page")
+	}
+
+	// Thêm trang vào bộ nhớ đệm
+	bp.pages[file][pageNo] = page
+	return page, nil
 }

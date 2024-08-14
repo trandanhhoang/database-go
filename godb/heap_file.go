@@ -2,7 +2,9 @@ package godb
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -18,7 +20,14 @@ type HeapFile struct {
 	// TODO: some code goes here
 	// HeapFile should include the fields below;  you may want to add
 	// additional fields
-	bufPool *BufferPool
+	bufPool   *BufferPool
+	tupleDesc *TupleDesc
+	fromFile  string
+	// TODO, user define
+	numberOfPage int
+	sizeOfTuple  int
+	Pages        []*heapPage
+	// slot []
 	sync.Mutex
 }
 
@@ -30,13 +39,16 @@ type HeapFile struct {
 // May return an error if the file cannot be opened or created.
 func NewHeapFile(fromFile string, td *TupleDesc, bp *BufferPool) (*HeapFile, error) {
 	// TODO: some code goes here
-	return &HeapFile{}, nil //replace me
+	return &HeapFile{
+		bufPool:   bp,
+		tupleDesc: td,
+		fromFile:  fromFile,
+	}, nil //replace me
 }
 
 // Return the number of pages in the heap file
 func (f *HeapFile) NumPages() int {
-	// TODO: some code goes here
-	return 0 //replace me
+	return f.numberOfPage
 }
 
 // Load the contents of a heap file from a specified CSV file.  Parameters are as follows:
@@ -122,8 +134,41 @@ func (f *HeapFile) LoadFromCSV(file *os.File, hasHeader bool, sep string, skipLa
 // appropriate offset, read the bytes in, and construct a [heapPage] object, using
 // the [heapPage.initFromBuffer] method.
 func (f *HeapFile) readPage(pageNo int) (*Page, error) {
-	// TODO: some code goes here
-	return nil, nil
+	// Tính toán vị trí offset trong tệp dựa trên số trang
+	offset := int64(pageNo) * int64(PageSize)
+
+	// Mở file từ hệ thống tệp (disk)
+	file, err := os.Open(f.fromFile)
+	if err != nil {
+		return nil, fmt.Errorf("could not open file: %w", err)
+	}
+	defer file.Close()
+
+	// Di chuyển con trỏ đọc đến vị trí offset
+	_, err = file.Seek(offset, io.SeekStart)
+	if err != nil {
+		return nil, fmt.Errorf("could not seek to offset %d: %w", offset, err)
+	}
+
+	// Tạo một buffer để đọc dữ liệu của trang
+	data := make([]byte, PageSize)
+	_, err = io.ReadFull(file, data)
+	if err != nil {
+		return nil, fmt.Errorf("could not read page data: %w", err)
+	}
+
+	// Tạo một bytes.Buffer từ dữ liệu đọc được
+	buffer := bytes.NewBuffer(data)
+
+	// Khởi tạo một heapPage từ buffer đọc được
+	page := newHeapPage(f.tupleDesc, pageNo, f)
+	err = page.initFromBuffer(buffer)
+	if err != nil {
+		return nil, fmt.Errorf("could not initialize heapPage from buffer: %w", err)
+	}
+	// Return the heapPage as a Page
+	var pageInterface Page = page
+	return &pageInterface, nil
 }
 
 // Add the tuple to the HeapFile.  This method should search through pages in

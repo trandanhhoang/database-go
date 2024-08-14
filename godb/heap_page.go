@@ -2,6 +2,9 @@ package godb
 
 import (
 	"bytes"
+	"encoding/binary"
+	"fmt"
+	"unsafe"
 )
 
 /* HeapPage implements the Page interface for pages of HeapFiles. We have
@@ -47,25 +50,73 @@ dirty page, it's OK if tuples are renumbered when they are written back to disk.
 */
 
 type heapPage struct {
-	// TODO: some code goes here
+	tupleDesc *TupleDesc
+	file      *HeapFile
+	pageNo    int
+	// TODO, user define
+	// For Header
+	numSlots  int32
+	usedSlots int32
+	// For the rest
+	tuples []*Tuple
 }
 
 // Construct a new heap page
 func newHeapPage(desc *TupleDesc, pageNo int, f *HeapFile) *heapPage {
-	// TODO: some code goes here
-	return &heapPage{} //replace me
+	headerSizeAsByte := 8
+	// Khởi tạo số lượng slots dựa trên kích thước của một trang và kích thước của một tuple
+	// giả sử rằng PageSize và kích thước của mỗi Tuple đều đã được xác định trước
+	// Ta sẽ tính số lượng slots dựa trên công thức:
+	// numSlots = (PageSize - headerSize) / tupleSize
+	tupleSize := calculateTupleSize(desc)
+	numSlots := (PageSize - headerSizeAsByte) / tupleSize
+
+	return &heapPage{
+		numSlots:  int32(numSlots),
+		usedSlots: 0, // Khi mới tạo thì chưa có tuple nào được sử dụng
+		tupleDesc: desc,
+		tuples:    make([]*Tuple, numSlots),
+		file:      f,
+		pageNo:    pageNo,
+	}
+}
+
+func calculateTupleSize(desc *TupleDesc) int {
+	tupleSize := 0
+	for _, field := range desc.Fields {
+		switch field.Ftype {
+		case IntType:
+			tupleSize += int(unsafe.Sizeof(int64(0))) // Giả sử kích thước của int là 8 byte
+		case StringType:
+			tupleSize += StringLength // Kích thước của chuỗi cố định
+		}
+	}
+	return tupleSize
 }
 
 func (h *heapPage) getNumSlots() int {
-	// TODO: some code goes here
-	return 0 //replace me
+	return int(h.numSlots)
 }
 
 // Insert the tuple into a free slot on the page, or return an error if there are
 // no free slots.  Set the tuples rid and return it.
 func (h *heapPage) insertTuple(t *Tuple) (recordID, error) {
-	// TODO: some code goes here
-	return 0, nil //replace me
+	// Check if there's space for more tuples
+	if h.usedSlots >= h.numSlots {
+		return nil, fmt.Errorf("no free slots available")
+	}
+
+	// Find a free slot
+	slotIdx := h.usedSlots
+	h.usedSlots++
+
+	// Set the tuple's RID
+	t.Rid = slotIdx
+
+	// Insert the tuple into the slot
+	h.tuples[slotIdx] = t
+
+	return slotIdx, nil
 }
 
 // Delete the tuple in the specified slot number, or return an error if
@@ -101,20 +152,71 @@ func (p *heapPage) getFile() *DBFile {
 // page, written using the Tuple.writeTo method.
 func (h *heapPage) toBuffer() (*bytes.Buffer, error) {
 	// TODO: some code goes here
-	return nil,nil //replace me
+	return nil, nil //replace me
 
 }
 
 // Read the contents of the HeapPage from the supplied buffer.
 func (h *heapPage) initFromBuffer(buf *bytes.Buffer) error {
-	// TODO: some code goes here
-	return nil //replace me
+	// Đọc số lượng slots (tuples) từ header
+	err := binary.Read(buf, binary.LittleEndian, &h.numSlots)
+	if err != nil {
+		return fmt.Errorf("could not read numSlots: %w", err)
+	}
+
+	// Đọc số lượng slots đã sử dụng từ header
+	err = binary.Read(buf, binary.LittleEndian, &h.usedSlots)
+	if err != nil {
+		return fmt.Errorf("could not read usedSlots: %w", err)
+	}
+
+	// Khởi tạo mảng chứa các tuple
+	h.tuples = make([]Tuple, h.numSlots)
+
+	// Đọc từng tuple từ buffer
+	for i := 0; i < int(h.usedSlots); i++ {
+		tuple, err := readTupleFrom(buf, &h.tupleDesc)
+		if err != nil {
+			return fmt.Errorf("could not read tuple %d: %w", i, err)
+		}
+		h.tuples[i] = *tuple
+	}
+
+	return nil
 }
 
 // Return a function that iterates through the tuples of the heap page.  Be sure
 // to set the rid of the tuple to the rid struct of your choosing beforing
 // return it. Return nil, nil when the last tuple is reached.
+
+// used slot maybe not dense
 func (p *heapPage) tupleIter() func() (*Tuple, error) {
-	// TODO: some code goes here
-	return nil //replace me
+	// Initialize an index to keep track of the current tuple
+	currentIdx := 0
+
+	// The iterator function
+	return func() (*Tuple, error) {
+		// Check if we've reached the end of the tuples
+		if currentIdx >= int(p.numSlots) {
+			return nil, nil
+		}
+
+		// Get the current tuple
+		tuple := &p.tuples[currentIdx]
+
+		// Check if the current slot is used; if not, skip it
+		if !p.isSlotUsed(currentIdx) {
+			currentIdx++
+			return nil, nil
+		}
+
+		// TODO: ??? for what Set the record ID (rid) of the tuple
+		tuple.Rid = currentIdx
+
+		//TODO: ??? for what Increment the index for the next call
+		currentIdx++
+
+		// Return the tuple
+		return tuple, nil
+	}
 }

@@ -6,6 +6,8 @@ import (
 
 func TestGetPage(t *testing.T) {
 	_, t1, t2, hf, bp, _ := makeTestVars()
+	// bp with 3 pages
+	// hf, err := NewHeapFile(TestingFile, &td, bp)
 	tid := NewTID()
 	for i := 0; i < 300; i++ {
 		bp.BeginTransaction(tid)

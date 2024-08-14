@@ -10,6 +10,7 @@ import (
 	"log"
 	"reflect"
 	"strings"
+	"unsafe"
 
 	"github.com/mitchellh/hashstructure/v2"
 )
@@ -151,11 +152,21 @@ type recordID interface {
 // strings need to be padded to StringLength bytes (set in types.go). For
 // example if StringLength is set to 5, the string 'mit' should be written as
 // 'm', 'i', 't', 0, 0
-//
-// May return an error if the buffer has insufficient capacity to store the
-// tuple.
 func (t *Tuple) writeTo(b *bytes.Buffer) error {
-	// TODO: some code goes here
+	// May return an error if the buffer has insufficient capacity to store the tuple.
+	maxSize := 0
+	for _, field := range t.Fields {
+		switch f := field.(type) {
+		case IntField:
+			maxSize += int(unsafe.Sizeof(int64(f.Value)))
+		case StringField:
+			maxSize += StringLength
+		}
+	}
+	if maxSize > b.Cap() {
+		return fmt.Errorf("buffer has insufficient capacity to store tuple")
+	}
+
 	// Write the fields of the tuple in sequential order
 	for _, field := range t.Fields {
 		switch field := field.(type) {
