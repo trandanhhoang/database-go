@@ -1,6 +1,7 @@
 package godb
 
 import (
+	"fmt"
 	"os"
 	"testing"
 )
@@ -203,4 +204,23 @@ func TestHeapFilePageKey(t *testing.T) {
 			t.Errorf("Expected non-equal pageKey for different heapfiles")
 		}
 	}
+}
+
+func TestNumPage(t *testing.T) {
+	var td = TupleDesc{Fields: []FieldType{
+		{Fname: "name", Ftype: StringType},
+		{Fname: "age", Ftype: IntType},
+	}}
+	bp := NewBufferPool(3)
+	os.Remove(TestingFile)
+	hf, _ := NewHeapFile(TestingFile, &td, bp)
+	var t1 = Tuple{
+		Desc: td,
+		Fields: []DBValue{
+			StringField{"sam"},
+			IntField{25},
+		}}
+	hf.insertTuple(&t1, NewTID())
+	fmt.Println(hf.NumPages())
+	_ = hf
 }

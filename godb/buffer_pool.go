@@ -1,7 +1,5 @@
 package godb
 
-import "log"
-
 //BufferPool provides methods to cache pages that have been read from disk.
 //It has a fixed capacity to limit the total amount of memory used by GoDB.
 //It is also the primary way in which transactions are enforced, by using page
@@ -21,7 +19,7 @@ type BufferPool struct {
 	numPages int
 	size     int
 	// Giả sử chỉ có 1 bufferpool duy nhất cho DB.
-	pages map[DBFile]map[int]*Page // DBFile -> pageNo -> Page
+	pages map[any]*Page // DBFile -> pageNo -> Page
 }
 
 // Create a new BufferPool with the specified number of pages
@@ -29,14 +27,18 @@ func NewBufferPool(numPages int) *BufferPool {
 	// TODO: some code goes here
 	return &BufferPool{
 		numPages: numPages,
-		pages:    make(map[DBFile]map[int]*Page),
+		pages:    make(map[any]*Page),
 	}
 }
 
 // Testing method -- iterate through all pages in the buffer pool
 // and flush them using [DBFile.flushPage]. Does not need to be thread/transaction safe
 func (bp *BufferPool) FlushAllPages() {
-	// TODO: some code goes here
+	for _, page := range bp.pages {
+		p := *page
+		file := *p.getFile()
+		file.flushPage(&p)
+	}
 }
 
 // Abort the transaction, releasing locks. Because GoDB is FORCE/NO STEAL, none
@@ -72,21 +74,30 @@ func (bp *BufferPool) BeginTransaction(tid TransactionID) error {
 // one of the transactions in the deadlock]. You will likely want to store a list
 // of pages in the BufferPool in a map keyed by the [DBFile.pageKey].
 func (bp *BufferPool) GetPage(file DBFile, pageNo int, tid TransactionID, perm RWPerm) (*Page, error) {
+	key := file.pageKey(pageNo)
 	// Nếu trang đã có trong bộ nhớ đệm, trả về trang đó
-	if page, ok := bp.pages[file][pageNo]; ok {
+	if page, ok := bp.pages[key]; ok {
 		return page, nil
 	}
-	page, err := file.readPage(pageNo)
+
+	// if bp.size == bp.numPages {
+	// 	// evict page
+	// 	for _, page := range bp.pages[file] {
+	// 		if !page.isDirty() {
+	// 			log.Println("evict this page")
+	// 			break
+	// 		}
+	// 	}
+	// 	return nil, fmt.Errorf("buffer pool is full of dirty page")
+	// }
+
+	// TODO: what happen if no data in this page ????
+	newPage, err := file.readPage(pageNo)
 	if err != nil {
 		return nil, err
 	}
 
-	if bp.size == bp.numPages {
-		// evict page
-		log.Println("TODO: evict page")
-	}
-
 	// Thêm trang vào bộ nhớ đệm
-	bp.pages[file][pageNo] = page
-	return page, nil
+	bp.pages[key] = newPage
+	return newPage, nil
 }

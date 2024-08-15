@@ -141,6 +141,11 @@ type Tuple struct {
 type recordID interface {
 }
 
+type RecordID struct {
+	PageNo int
+	SlotNo int
+}
+
 // Serialize the contents of the tuple into a byte array Since all tuples are of
 // fixed size, this method should simply write the fields in sequential order
 // into the supplied buffer.
@@ -175,15 +180,12 @@ func (t *Tuple) writeTo(b *bytes.Buffer) error {
 			if err != nil {
 				return err
 			}
-			log.Printf("Buffer after int %v value %v", b.Bytes(), field.Value)
 		case StringField:
-			log.Println("string", b)
 			paddedValue := field.Value + strings.Repeat("\x00", StringLength-len(field.Value))
 			err := binary.Write(b, binary.LittleEndian, []byte(paddedValue))
 			if err != nil {
 				return err
 			}
-			log.Printf("Buffer after Str %v value %v", b.Bytes(), field.Value)
 		default:
 			return fmt.Errorf("unsupported field type: %T", field)
 		}
@@ -233,7 +235,6 @@ func readTupleFrom(b *bytes.Buffer, desc *TupleDesc) (*Tuple, error) {
 			return nil, fmt.Errorf("unsupported field type: %T", field)
 		}
 	}
-	log.Println("after read tuple", res)
 	return res, nil //replace me
 }
 

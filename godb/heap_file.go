@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -17,18 +16,17 @@ import (
 // HeapFile is a public class because external callers may wish to instantiate
 // database tables using the method [LoadFromCSV]
 type HeapFile struct {
-	// TODO: some code goes here
 	// HeapFile should include the fields below;  you may want to add
 	// additional fields
-	bufPool   *BufferPool
+	bufPool *BufferPool
+	sync.Mutex
+	// From constructor
 	tupleDesc *TupleDesc
 	fromFile  string
-	// TODO, user define
-	numberOfPage int
-	sizeOfTuple  int
-	Pages        []*heapPage
-	// slot []
-	sync.Mutex
+	// user define
+	// numberOfPage int
+	// sizeOfTuple  int
+	// Pages []*heapPage
 }
 
 // Create a HeapFile.
@@ -38,7 +36,9 @@ type HeapFile struct {
 // - bp: the BufferPool that is used to store pages read from the HeapFile
 // May return an error if the file cannot be opened or created.
 func NewHeapFile(fromFile string, td *TupleDesc, bp *BufferPool) (*HeapFile, error) {
-	// TODO: some code goes here
+	file, _ := os.OpenFile(fromFile, os.O_RDWR|os.O_CREATE, 0666)
+	defer file.Close()
+
 	return &HeapFile{
 		bufPool:   bp,
 		tupleDesc: td,
@@ -47,8 +47,14 @@ func NewHeapFile(fromFile string, td *TupleDesc, bp *BufferPool) (*HeapFile, err
 }
 
 // Return the number of pages in the heap file
+// you can use the `File.Stat()` method to determine the size of the heap file in bytes.
 func (f *HeapFile) NumPages() int {
-	return f.numberOfPage
+	fileInfo, err := os.Stat(f.fromFile)
+	if err == nil {
+		filesize := int(fileInfo.Size())
+		return filesize / PageSize
+	}
+	return 0 //replace me
 }
 
 // Load the contents of a heap file from a specified CSV file.  Parameters are as follows:
@@ -134,35 +140,19 @@ func (f *HeapFile) LoadFromCSV(file *os.File, hasHeader bool, sep string, skipLa
 // appropriate offset, read the bytes in, and construct a [heapPage] object, using
 // the [heapPage.initFromBuffer] method.
 func (f *HeapFile) readPage(pageNo int) (*Page, error) {
-	// Tính toán vị trí offset trong tệp dựa trên số trang
-	offset := int64(pageNo) * int64(PageSize)
-
 	// Mở file từ hệ thống tệp (disk)
-	file, err := os.Open(f.fromFile)
-	if err != nil {
-		return nil, fmt.Errorf("could not open file: %w", err)
-	}
+	file, _ := os.OpenFile(f.fromFile, os.O_RDWR|os.O_CREATE, 0666)
 	defer file.Close()
-
-	// Di chuyển con trỏ đọc đến vị trí offset
-	_, err = file.Seek(offset, io.SeekStart)
-	if err != nil {
-		return nil, fmt.Errorf("could not seek to offset %d: %w", offset, err)
-	}
 
 	// Tạo một buffer để đọc dữ liệu của trang
 	data := make([]byte, PageSize)
-	_, err = io.ReadFull(file, data)
+	_, err := file.ReadAt(data, int64(pageNo*PageSize))
 	if err != nil {
 		return nil, fmt.Errorf("could not read page data: %w", err)
 	}
-
-	// Tạo một bytes.Buffer từ dữ liệu đọc được
-	buffer := bytes.NewBuffer(data)
-
 	// Khởi tạo một heapPage từ buffer đọc được
 	page := newHeapPage(f.tupleDesc, pageNo, f)
-	err = page.initFromBuffer(buffer)
+	err = page.initFromBuffer(bytes.NewBuffer(data))
 	if err != nil {
 		return nil, fmt.Errorf("could not initialize heapPage from buffer: %w", err)
 	}
@@ -184,20 +174,50 @@ func (f *HeapFile) readPage(pageNo int) (*Page, error) {
 // worry about concurrent transactions modifying the Page or HeapFile.  We will
 // add support for concurrent modifications in lab 3.
 func (f *HeapFile) insertTuple(t *Tuple, tid TransactionID) error {
-	// TODO: some code goes here
-	return nil //replace me
+	numPages := f.NumPages()
 
+	for i := 0; i < numPages; i++ {
+		page, err := f.bufPool.GetPage(f, i, tid, ReadPerm)
+		if err != nil {
+			return err
+		}
+
+		heapPage := (*page).(*heapPage)
+
+		_, err = heapPage.insertTuple(t) // just insert without flush
+		if err != nil {
+			// holy fuck, first time I put here "break" instead of continue, that make this function run in 20s and can not pass test TestSerializeVeryLargeHeapFile()
+			continue
+		}
+		return nil
+	}
+
+	//Create HeapPage, insert tuple, flush page
+	heapPage := newHeapPage(f.tupleDesc, f.NumPages(), f)
+	heapPage.insertTuple(t)
+	var page Page = heapPage
+	f.flushPage(&page)
+	return nil
 }
 
 // Remove the provided tuple from the HeapFile.  This method should use the
 // [Tuple.Rid] field of t to determine which tuple to remove.
 // This method is only called with tuples that are read from storage via the
-// [Iterator] method, so you can so you can supply the value of the Rid
+// [Iterator] method, so you can supply the value of the Rid
 // for tuples as they are read via [Iterator].  Note that Rid is an empty interface,
 // so you can supply any object you wish.  You will likely want to identify the
 // heap page and slot within the page that the tuple came from.
 func (f *HeapFile) deleteTuple(t *Tuple, tid TransactionID) error {
-	// TODO: some code goes here
+	for i := 0; i < f.NumPages(); i++ {
+		page, err := f.bufPool.GetPage(f, i, tid, ReadPerm)
+		if err != nil {
+			return err
+		}
+		heapPage := (*page).(*heapPage)
+		heapPage.deleteTuple(t.Rid)
+		return nil
+	}
+
 	return nil //replace me
 }
 
@@ -207,16 +227,23 @@ func (f *HeapFile) deleteTuple(t *Tuple, tid TransactionID) error {
 // that it is the ith page in the heap file), so you can determine where to write it
 // back.
 func (f *HeapFile) flushPage(p *Page) error {
-	// TODO: some code goes here
-	return nil //replace me
+	file, _ := os.OpenFile(f.fromFile, os.O_RDWR|os.O_CREATE, 0666)
+	defer file.Close()
+
+	hp := (*p).(*heapPage)
+	buffer, err := hp.toBuffer()
+	if err != nil {
+		return err
+	}
+
+	_, err = file.WriteAt(buffer.Bytes(), int64(hp.pageNo*PageSize))
+	return err
 }
 
 // [Operator] descriptor method -- return the TupleDesc for this HeapFile
 // Supplied as argument to NewHeapFile.
 func (f *HeapFile) Descriptor() *TupleDesc {
-	// TODO: some code goes here
-	return nil //replace me
-
+	return f.tupleDesc
 }
 
 // [Operator] iterator method
@@ -225,12 +252,33 @@ func (f *HeapFile) Descriptor() *TupleDesc {
 // BufferPool method GetPage, rather than reading pages directly,
 // since the BufferPool caches pages and manages page-level locking state for
 // transactions
-// You should esnure that Tuples returned by this method have their Rid object
+// You should ensure that Tuples returned by this method have their Rid object
 // set appropriate so that [deleteTuple] will work (see additional comments there).
 func (f *HeapFile) Iterator(tid TransactionID) (func() (*Tuple, error), error) {
+	i := 0
+	j := 0
 
-	// TODO: some code goes here
 	return func() (*Tuple, error) {
+		for i < f.NumPages() {
+			page, err := f.bufPool.GetPage(f, i, tid, ReadPerm)
+			if err != nil {
+				return nil, err
+			}
+
+			heapPage := (*page).(*heapPage)
+
+			for j < int(heapPage.totalSlots) {
+				if heapPage.tuples[j] != nil {
+					tuple := heapPage.tuples[j]
+					j++
+					return tuple, nil
+				} else {
+					j++
+				}
+			}
+			j = 0
+			i++
+		}
 		return nil, nil
 	}, nil
 
@@ -247,8 +295,6 @@ type heapHash struct {
 // heapHash struct as the key for a page, although you can use any struct that
 // does not contain a slice or a map that uniquely identifies the page.
 func (f *HeapFile) pageKey(pgNo int) any {
-
-	// TODO: some code goes here
-	return nil
-
+	hH := heapHash{FileName: f.fromFile, PageNo: pgNo}
+	return hH
 }
