@@ -101,6 +101,7 @@ type RecordID struct {
 ### Heap page. (Implement here)
 
 - I haved explained it above, try to find with **Page have header**
+- Now try to pass all test in heap_page_test. From now, it still hard with the support of chatGPT.
 
 - Let look HeapPage in OOP.
 
@@ -119,12 +120,25 @@ type heapPage struct {
 }
 ```
 
-- Note that to process deletions you will likely delete tuples at a specific position (slot) in the heap page. This means that after a page is read from disk, tuples should retain the same slot number. Because GoDB will never evict a dirty page, it's OK if tuples are renumbered when they are written back to disk.
-
-- It still hard with the support of chatGPT.
-- Now try to pass all test in heap_page_test.go
-- Some trick lor:
-  - initFromBuffer need append RID after use readTupleFrom() method.
+- Fields:
+  - You can see in constructor, they give us TupleDesc, pageNo and HeapFile, so heapPage will have it in fields, make sense.
+  - Why we need the rest 4 fields: numSlots, usedSlots, tuples, dirty
+    - numSlots, usedSlots: this is data in header, read description above
+      - We can calculate the numsSlot by doing some math.
+      - usedSlots = 0 when construct, for sure.
+    - tuples: we need it for sure, page hold tuples. It will be put later.
+    - dirty: I don't know much about this field, but just add it because some method need it.
+- Methods:
+  - getNumSlots(): just get free slot = total - used.
+  - insertTuple(Tuple), deleteTuple(Tuple): make sense
+  - isDirty(), setDirty(), getFile(): ez to do.
+  - toBuffer(): Serialization and Deserialization, boring and hard, but need to do.
+    - just write total slot, used slot, tuples
+    - we need a trick here to fill full page (4096 bytes), that help us calculate the file.NumPages(), we back to it later.
+    - initFromBuffer(buf): opposite with method above, read back it from buffer.
+      - We need to implement carefully here. Tuple.writeTo(b \*bytes.Buffer) don't save the RID, so we need create RID for each tuple after use readTupleFrom(b \*bytes.Buffer, desc \*TupleDesc)
+    - tupleIter(): you need learn about anonymous functions
+      - learn here: https://go.dev/tour/moretypes/25
 
 ### HeapFile (Implement here)
 
@@ -137,9 +151,28 @@ type HeapFile struct {
 	// From constructor
 	tupleDesc *TupleDesc
 	fromFile  string
-	// user define
-	numberOfPage int
-	sizeOfTuple  int
-	Pages        []*heapPage
 }
 ```
+
+- At the first time, I think HeapFile should have field: "Pages []\*heapPage". But no, we just work with heapPage through bufferPool. Let make question, why ?
+
+  - I think, because if the file size is terabyte, how we can put all pages of it in memory, so this fields can't be used.
+
+- Fields: just put all field constructor give us.
+  - sync.Mutex: We don't use it know. When multi-thread come, we use it, back to it later.
+  - BufferPool: Yes, we need it for manipulate Pages in memory.
+    - We can make a question now, why don't let HeapFile manage it, just put some fields, methods manipulate Pages in memory in HeapFile (getPages(), FlushAllPages())
+    - When writing this line, I still have a question, why FlushAllPages() in bufferPool, but FlushPage() in File
+    - Think a little bit, `bufferPool will manage many File at the same time`, that the answer. Everything clear now, FlushPage() need file, because we use builtin library os/file.go to write buffer to file.
+  - TupleDesc: we need it for sure, the main purpose is pass it to Page.
+  - fromFile: name of file, use to open file.
+- Methods: Look around types.go, we should observate interface DBFile to know what HeapFile need
+  - LoadFromCSV(): ignore it.
+  - readPage(pageNo int): make sense
+  - insertTuple()
+
+### Question time
+
+- After implement, we need to make hypothesises, create quetion, then answer them to help us understand DB more deeply.
+
+## OBSERVATION EXTEND
