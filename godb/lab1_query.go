@@ -1,6 +1,8 @@
 package godb
 
 import (
+	"log"
+	"os"
 )
 
 // This function should load the csv file in fileName into a heap file (see
@@ -14,5 +16,39 @@ import (
 // reinserted into this file unless you delete (e.g., with [os.Remove] it before
 // calling NewHeapFile.
 func computeFieldSum(fileName string, td TupleDesc, sumField string) (int, error) {
-	return 0, nil // replace me
+	bp := NewBufferPool(5)
+	newFileName := "test-csv.dat"
+	if _, err := os.Stat(newFileName); err == nil {
+		os.Remove(newFileName)
+	}
+	heapFile, err := NewHeapFile(newFileName, &td, bp)
+	if err != nil {
+		return 0, err
+	}
+
+	f, err := os.Open(fileName)
+	if err != nil {
+		log.Fatalf("Couldn't open test_heap_file.csv")
+		return 0, err
+	}
+
+	err = heapFile.LoadFromCSV(f, true, ",", false)
+	if err != nil {
+		log.Fatalf("Load failed, %s", err)
+	}
+
+	iter, _ := heapFile.Iterator(NewTID())
+	counter := 0
+	tuple, err := iter()
+	fieldType := FieldType{
+		Fname: sumField,
+		Ftype: IntType,
+	}
+	for tuple != nil {
+		idx, _ := findFieldInTd(fieldType, heapFile.tupleDesc)
+		counter += int(tuple.Fields[idx].(IntField).Value)
+		tuple, err = iter()
+	}
+
+	return counter, nil // replace me
 }

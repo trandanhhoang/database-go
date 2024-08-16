@@ -17,4 +17,3 @@ func TestLab1Query(t *testing.T) {
 		t.Fatalf("expected sum of 1111, got %d", sum)
 	}
 }
-
