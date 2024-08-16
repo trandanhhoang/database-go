@@ -155,7 +155,7 @@ func (f *HeapFile) readPage(pageNo int) (*Page, error) {
 	return &pageInterface, nil
 }
 
-// Add the tuple to the HeapFile.  This method should search through pages in
+// Add the tuple to the HeapFile. This method should search through pages in
 // the heap file, looking for empty slots and adding the tuple in the first
 // empty slot if finds.
 //

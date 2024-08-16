@@ -169,10 +169,21 @@ type HeapFile struct {
 - Methods: Look around types.go, we should observate interface DBFile to know what HeapFile need
   - LoadFromCSV(): ignore it.
   - readPage(pageNo int): make sense
-  - insertTuple()
+  - insertTuple(): use Buffer Pool to get page, insert it, if all pages are full slot, create a new one.
+  - deleteTuple(): ez one.
+  - flushPage(): open page, serialize from page to byte.Buffer, write to file.
 
 ### Question time
 
 - After implement, we need to make hypothesises, create quetion, then answer them to help us understand DB more deeply.
 
-## OBSERVATION EXTEND
+- How many step deserilization (from byte to DS) when read a page to mem ?
+
+  - 1. file read 4096 bytes, create a page
+  - 2. from 4096 bytes above, page read header, then read tuples, one by one
+  - 3. tuple are read thanks to tupleDesc from File. RID increase ment from (0...usedSlot-1) in page.
+
+- How many step serilization ((from DS to byte)) when flushPage()?
+  - 1. HeapFile flushPage().
+  - 2. Page write header first, then write tuple ignore slot (it means ignore RID too).
+  - 3. Padding the rest byte with "\x00" (fill full page)
