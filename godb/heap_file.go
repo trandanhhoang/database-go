@@ -16,17 +16,11 @@ import (
 // HeapFile is a public class because external callers may wish to instantiate
 // database tables using the method [LoadFromCSV]
 type HeapFile struct {
-	// HeapFile should include the fields below;  you may want to add
-	// additional fields
 	bufPool *BufferPool
 	sync.Mutex
 	// From constructor
 	tupleDesc *TupleDesc
 	fromFile  string
-	// user define
-	// numberOfPage int
-	// sizeOfTuple  int
-	// Pages []*heapPage
 }
 
 // Create a HeapFile.
