@@ -48,8 +48,7 @@ func newFilter[T constraints.Ordered](constExpr Expr, op BoolOp, field Expr, chi
 
 // Return a TupleDescriptor for this filter op.
 func (f *Filter[T]) Descriptor() *TupleDesc {
-	// TODO: some code goes here
-	return nil
+	return f.child.Descriptor()
 }
 
 // Filter operator implementation. This function should iterate over
@@ -57,6 +56,24 @@ func (f *Filter[T]) Descriptor() *TupleDesc {
 // the predicate.
 // HINT: you can use the evalPred function defined in types.go to compare two values
 func (f *Filter[T]) Iterator(tid TransactionID) (func() (*Tuple, error), error) {
-	// TODO: some code goes here
-	return nil, nil
+	ite, err := f.child.Iterator(tid)
+	if err != nil {
+		return nil, err
+	}
+
+	return func() (*Tuple, error) {
+		tuple, err := ite()
+		if err != nil {
+			return nil, err
+		}
+		for tuple != nil {
+			leftValue, _ := f.left.EvalExpr(tuple)
+			rightValue, _ := f.right.EvalExpr(tuple)
+			if evalPred(f.getter(leftValue), f.getter(rightValue), f.op) {
+				return tuple, nil
+			}
+			tuple, err = ite()
+		}
+		return nil, nil
+	}, nil
 }

@@ -278,8 +278,8 @@ const (
 //
 // Calling the [Expr.EvalExpr] method on a tuple will return the value of the
 // expression on the supplied tuple.
+// eg: compare "sam" to "george jones" of 2 tuple in a "field Expr"
 func (t *Tuple) compareField(t2 *Tuple, field Expr) (orderByState, error) {
-	// TODO: some code goes here
 	left, err := field.EvalExpr(t)
 	if err != nil {
 		log.Println(err)

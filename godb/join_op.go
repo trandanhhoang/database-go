@@ -16,7 +16,7 @@ type EqualityJoin[T comparable] struct {
 	maxBufferSize int
 }
 
-// Constructor for a  join of integer expressions
+// Constructor for a join of integer expressions
 // Returns an error if either the left or right expression is not an integer
 func NewIntJoin(left Operator, leftField Expr, right Operator, rightField Expr, maxBufferSize int) (*EqualityJoin[int64], error) {
 	if leftField.GetExprType().Ftype != rightField.GetExprType().Ftype {
@@ -51,8 +51,9 @@ func NewStringJoin(left Operator, leftField Expr, right Operator, rightField Exp
 // the union of the fields in the descriptors of the left and right operators.
 // HINT: use the merge function you implemented for TupleDesc in lab1
 func (hj *EqualityJoin[T]) Descriptor() *TupleDesc {
-	// TODO: some code goes here
-	return nil
+	var leftOp Operator = *hj.left
+	var rightOp Operator = *hj.right
+	return leftOp.Descriptor().merge(rightOp.Descriptor())
 }
 
 // Join operator implementation.  This function should iterate over the results
@@ -70,7 +71,43 @@ func (hj *EqualityJoin[T]) Descriptor() *TupleDesc {
 // out.  To pass this test, you will need to use something other than a nested
 // loops join.
 func (joinOp *EqualityJoin[T]) Iterator(tid TransactionID) (func() (*Tuple, error), error) {
+	leftIte, _ := (*joinOp.left).Iterator(tid)
+	rightIte, _ := (*joinOp.right).Iterator(tid)
+	leftTuple, _ := leftIte()
+	if leftTuple == nil {
+		return nil, nil
+	}
 
-	// TODO: some code goes here
-	return nil, nil
+	return func() (*Tuple, error) {
+		for {
+			rightTuple, _ := rightIte()
+			if rightTuple == nil {
+				leftTuple, _ = leftIte()
+				rightIte, _ = (*joinOp.right).(Operator).Iterator(tid)
+				continue
+			}
+
+			rightValue, _ := joinOp.rightField.EvalExpr(rightTuple)
+
+			if leftTuple == nil {
+				return nil, nil
+			}
+
+			leftValue, _ := joinOp.leftField.EvalExpr(leftTuple)
+
+			if leftValue != rightValue {
+				continue
+			} else {
+				return joinTuples(leftTuple, rightTuple), nil
+			}
+		}
+		return nil, nil
+	}, nil
 }
+
+// Sort-Merge Join.
+// TimeComplex là O(m+n),
+// SpaceComplex: là O(m+n).
+// Hash Join.
+// TimeComplex là O(m/size*n),
+// SpaceComplex: là O(size).

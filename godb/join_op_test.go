@@ -67,13 +67,12 @@ func TestJoin(t *testing.T) {
 const BigJoinFile1 string = "jointest1.dat"
 const BigJoinFile2 string = "jointest2.dat"
 
-//This test joins two large heap files (each containing ntups tuples). A simple
-//nested loops join will take a LONG time to complete this join, so we've added
-//a timeout that will cause the join to fail after 10 seconds.
+// This test joins two large heap files (each containing ntups tuples). A simple
+// nested loops join will take a LONG time to complete this join, so we've added
+// a timeout that will cause the join to fail after 10 seconds.
 //
-//Note that this test is optional;  passing it will give extra credit, as
-//describe in the lab 2 assignment.
-
+// Note that this test is optional;  passing it will give extra credit, as
+// describe in the lab 2 assignment.
 func TestBigJoinOptional(t *testing.T) {
 
 	timeout := time.After(20 * time.Second)
