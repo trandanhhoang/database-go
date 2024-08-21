@@ -248,10 +248,17 @@ func (t1 *Tuple) equals(t2 *Tuple) bool {
 
 // Merge two tuples together, producing a new tuple with the fields of t2 appended to t1.
 func joinTuples(t1 *Tuple, t2 *Tuple) *Tuple {
-	// merge(desc2 *TupleDesc) cần 1 contror, nên dùng & để lấy địa chỉ, truyền như 1 con trỏ.
+	// merge(desc2 *TupleDesc) cần 1 con tro?, nên dùng & để lấy địa chỉ, truyền như 1 con trỏ.
+	// t1 can be null
+	if t1 == nil {
+		return &Tuple{
+			// combinedDesc là 1 con trỏ, nên cần de-reference nó bằng *
+			Desc:   t2.Desc,
+			Fields: t2.Fields,
+		}
+	}
 	combinedDesc := t1.Desc.merge(&t2.Desc)
 	combinedField := append(t1.Fields, t2.Fields...)
-	// TODO: some code goes here
 	return &Tuple{
 		// combinedDesc là 1 con trỏ, nên cần de-reference nó bằng *
 		Desc:   *combinedDesc,

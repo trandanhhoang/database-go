@@ -1,6 +1,7 @@
 # Database from scratch written in Go
 
 - Implement GoDB, a basic database management system.
+- Learn how database work internally.
 
 ## Introduction
 
