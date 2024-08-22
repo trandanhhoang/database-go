@@ -154,3 +154,35 @@ SELECT name, age, salary
   FROM table
   ORDER BY name ASC, age DESC
 ```
+
+- `Now, I have a question, if heapfile have pages, each page have tuples. For example, with billion tuples here, how can we create a memory to sort all tuples in OrderBy() here ???`
+
+  - I have found this video valuable here
+    - https://www.youtube.com/watch?v=F9XmmS8rL4c
+  - We can use K-Way datastructure
+    - It kind like merge sort, each time sort, we save the result in disk.
+
+- But we just implement the easy one here, put all data in mem.
+
+  - I fail many time because syntax of Go with closure method
+
+  ```go
+  for idx, expr := range o.orderBy {
+  	tempIdx := idx
+  	tempExpr := expr
+  	lessFuncs = append(lessFuncs, func(p1, p2 *Tuple) bool {
+  		order, _ := p1.compareField(p2, tempExpr)
+  		if o.ascendings[tempIdx] {
+  			return order < OrderedEqual
+  		}
+  		// we want descending
+  		// if p1 > p2 -> return true
+  		// if p1 <= p2 -> return false
+  		return order > OrderedEqual
+  	})
+  }
+  ```
+
+  - If you don't capture idx & expr here. It will use the last one for all closure method
+
+## Limit
