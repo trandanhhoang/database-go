@@ -123,3 +123,9 @@ group by name;
       - [{name,"sam"},{address,"mit"},{count,1},{sum,25}]
       - [{name,"hoang"},{address,"saigon"},{count,1},{sum,999}]
       - [{name,"hoang"},{address,"kbang"},{count,2},{sum,1998}]
+
+## Insert and Delete (Implement)
+
+- If you have do 2 task above, this one is trivial.
+
+##

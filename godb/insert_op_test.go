@@ -19,7 +19,9 @@ func TestInsert(t *testing.T) {
 	}
 	tid = NewTID()
 	bp.BeginTransaction(tid)
+
 	ins := NewInsertOp(hf2, hf)
+
 	iter, _ := ins.Iterator(tid)
 	if iter == nil {
 		t.Fatalf("iter was nil")
