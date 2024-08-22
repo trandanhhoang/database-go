@@ -10,7 +10,6 @@ import (
 	"log"
 	"reflect"
 	"strings"
-	"unsafe"
 
 	"github.com/mitchellh/hashstructure/v2"
 )
@@ -159,20 +158,6 @@ type RecordID struct {
 // 'm', 'i', 't', 0, 0
 func (t *Tuple) writeTo(b *bytes.Buffer) error {
 	// May return an error if the buffer has insufficient capacity to store the tuple.
-	maxSize := 0
-	for _, field := range t.Fields {
-		switch f := field.(type) {
-		case IntField:
-			maxSize += int(unsafe.Sizeof(int64(f.Value)))
-		case StringField:
-			maxSize += StringLength
-		}
-	}
-	if maxSize > b.Cap() {
-		return fmt.Errorf("buffer has insufficient capacity to store tuple")
-	}
-
-	// Write the fields of the tuple in sequential order
 	for _, field := range t.Fields {
 		switch field := field.(type) {
 		case IntField:
