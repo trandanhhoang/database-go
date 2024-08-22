@@ -126,6 +126,31 @@ group by name;
 
 ## Insert and Delete (Implement)
 
-- If you have do 2 task above, this one is trivial.
+- If you have done 2 task above, this one is trivial.
 
-##
+## Projection (Implement)
+
+- Project iterates through its child, selects some of each tuple's fields, and returns them. Optionally, you will need to support the DISTINCT keyword, meaning that identical tuples should be returned only once. For example, given a dataset like:
+- It support for
+
+  - "SELECT name FROM table"
+  - "SELECT DISTINCE name FROM table"
+
+- Until now, I know the reason, why we need method `Descriptor()` for interface `Operator`, this method use for describe what is the tupleDesc of the `tuple` that return by method Iterator(), for example:
+
+  - join_op.op merge tuple left and right with each other, so Descriptor return leftOp.Descriptor().merge(rightOp.Descriptor())
+  - filter_op.go just return the child, because Iterator() don't change anything in tuple
+  - agg_op.go, return depend on groupByFields (to show value after groupBy), and newAggState (value of the Agg - sum, count, avg, ...)
+
+- If you have done 3 task above, this one is trivial.
+
+## Order by
+
+- It needs to support ordering by more than one field, with each field in either ascending or descending order.
+- eg:
+
+```sql
+SELECT name, age, salary
+  FROM table
+  ORDER BY name ASC, age DESC
+```

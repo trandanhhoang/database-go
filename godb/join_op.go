@@ -101,7 +101,6 @@ func (joinOp *EqualityJoin[T]) Iterator(tid TransactionID) (func() (*Tuple, erro
 				return joinTuples(leftTuple, rightTuple), nil
 			}
 		}
-		return nil, nil
 	}, nil
 }
 

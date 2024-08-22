@@ -8,8 +8,8 @@ func TestProject(t *testing.T) {
 	_, t1, t2, hf, _, tid := makeTestVars()
 	hf.insertTuple(&t1, tid)
 	hf.insertTuple(&t2, tid)
-	//fs := make([]FieldType, 1)
-	//fs[0] = t1.Desc.Fields[0]
+	fs := make([]FieldType, 1)
+	fs[0] = t1.Desc.Fields[0]
 	var outNames []string = make([]string, 1)
 	outNames[0] = "outf"
 	fieldExpr := FieldExpr{t1.Desc.Fields[0]}

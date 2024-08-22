@@ -48,6 +48,7 @@ func newFilter[T constraints.Ordered](constExpr Expr, op BoolOp, field Expr, chi
 
 // Return a TupleDescriptor for this filter op.
 func (f *Filter[T]) Descriptor() *TupleDesc {
+
 	return f.child.Descriptor()
 }
 

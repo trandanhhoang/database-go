@@ -1,11 +1,13 @@
 package godb
 
+import "fmt"
+
 type Project struct {
 	selectFields []Expr // required fields for parser
 	outputNames  []string
 	child        Operator
 	//add additional fields here
-	// TODO: some code goes here
+	isDistinct bool
 }
 
 // Project constructor -- should save the list of selected field, child, and the child op.
@@ -14,8 +16,16 @@ type Project struct {
 // selectFields; throws error if not), distinct is for noting whether the projection reports
 // only distinct results, and child is the child operator.
 func NewProjectOp(selectFields []Expr, outputNames []string, distinct bool, child Operator) (Operator, error) {
-	// TODO: some code goes here
-	return nil, nil
+	if len(outputNames) != len(selectFields) {
+		return nil, fmt.Errorf("outputNames should be same length as selected field")
+	}
+
+	return &Project{
+		selectFields: selectFields,
+		outputNames:  outputNames,
+		child:        child,
+		isDistinct:   distinct,
+	}, nil
 }
 
 // Return a TupleDescriptor for this projection. The returned descriptor should contain
@@ -23,9 +33,14 @@ func NewProjectOp(selectFields []Expr, outputNames []string, distinct bool, chil
 // as specified in the constructor.
 // HINT: you can use expr.GetExprType() to get the field type
 func (p *Project) Descriptor() *TupleDesc {
-	// TODO: some code goes here
-	return nil
+	res := &TupleDesc{}
 
+	for idx, selectedField := range p.selectFields {
+		res.Fields = append(res.Fields, selectedField.GetExprType())
+		res.Fields[idx].Fname = p.outputNames[idx]
+	}
+
+	return res
 }
 
 // Project operator implementation.  This function should iterate over the
@@ -34,7 +49,60 @@ func (p *Project) Descriptor() *TupleDesc {
 // To implement this you will need to record in some data structure with the
 // distinct tuples seen so far.  Note that support for the distinct keyword is
 // optional as specified in the lab 2 assignment.
+func (p *Project) IteratorWithoutDistinct(tid TransactionID) (func() (*Tuple, error), error) {
+	ite, _ := p.child.Iterator(tid)
+
+	return func() (*Tuple, error) {
+		tuple, _ := ite()
+		if tuple == nil {
+			return nil, nil
+		}
+		fieldTypes := make([]FieldType, len(p.selectFields))
+		for idx, expr := range p.selectFields {
+			fieldTypes[idx] = expr.GetExprType()
+		}
+
+		tuple, _ = tuple.project(fieldTypes)
+
+		return &Tuple{
+			Desc:   *p.Descriptor(),
+			Fields: tuple.Fields,
+		}, nil
+
+	}, nil
+}
+
 func (p *Project) Iterator(tid TransactionID) (func() (*Tuple, error), error) {
-	// TODO: some code goes here
-	return nil, nil
+	ite, _ := p.child.Iterator(tid)
+
+	// create a set here
+	distinctMap := make(map[any]int)
+
+	return func() (*Tuple, error) {
+		tuple, _ := ite()
+		for tuple != nil {
+			fieldTypes := make([]FieldType, len(p.selectFields))
+			for idx, expr := range p.selectFields {
+				fieldTypes[idx] = expr.GetExprType()
+			}
+			tuple, _ = tuple.project(fieldTypes)
+			// check in set
+			if p.isDistinct && distinctMap[tuple.tupleKey()] == 1 {
+				// try to get a new one
+				tuple, _ = ite()
+				continue
+			}
+
+			// set a new one
+			if p.isDistinct {
+				distinctMap[tuple.tupleKey()] = 1
+			}
+
+			return &Tuple{
+				Desc:   *p.Descriptor(),
+				Fields: tuple.Fields,
+			}, nil
+		}
+		return nil, nil
+	}, nil
 }
