@@ -290,3 +290,112 @@ func TestRepeatedIteration(t *testing.T) {
 	}
 
 }
+
+func TestGbyNameWithCountAggAndSumAgg(t *testing.T) {
+	_, t1, t2, hf, _, tid := makeTestVars()
+	hf.insertTuple(&t1, tid)
+	hf.insertTuple(&t2, tid)
+	hf.insertTuple(&t2, tid)
+	hf.insertTuple(&t2, tid)
+
+	gbyFields := []Expr{&FieldExpr{hf.Descriptor().Fields[0]}}
+	sa := CountAggState{}
+	expr := FieldExpr{t1.Desc.Fields[0]}
+	sa.Init("count", &expr, nil)
+
+	sumAgg := SumAggState[int64]{}
+	sumExpr := FieldExpr{t1.Desc.Fields[1]}
+	sumAgg.Init("sum", &sumExpr, intAggGetter)
+
+	agg := NewGroupedAggregator([]AggState{&sa, &sumAgg}, gbyFields, hf)
+
+	iter, _ := agg.Iterator(tid)
+	fields := []FieldType{
+		{"name", "", StringType},
+		{"count", "", IntType},
+		{"sum", "", IntType},
+	}
+	outt1 := Tuple{TupleDesc{fields},
+		[]DBValue{
+			StringField{"sam"},
+			IntField{1},
+			IntField{25},
+		},
+		nil,
+	}
+	outt2 := Tuple{
+		TupleDesc{fields},
+		[]DBValue{
+			StringField{"george jones"},
+			IntField{3},
+			IntField{2997},
+		},
+		nil,
+	}
+	ts := []*Tuple{&outt1, &outt2}
+	match := CheckIfOutputMatches(iter, ts)
+	if !match {
+		t.Fail()
+	}
+}
+
+func TestGbyNameAndAddressWithCountAggAndSumAgg(t *testing.T) {
+	_, t1, t2, t3, hf, _, tid := makeTestVarsByHoang()
+	hf.insertTuple(&t1, tid)
+	hf.insertTuple(&t2, tid)
+	hf.insertTuple(&t3, tid)
+	hf.insertTuple(&t2, tid)
+
+	gbyFields := []Expr{&FieldExpr{hf.Descriptor().Fields[0]}, &FieldExpr{hf.Descriptor().Fields[1]}}
+	sa := CountAggState{}
+	expr := FieldExpr{t1.Desc.Fields[0]}
+	sa.Init("count", &expr, nil)
+
+	sumAgg := SumAggState[int64]{}
+	sumExpr := FieldExpr{t1.Desc.Fields[2]}
+	sumAgg.Init("sum", &sumExpr, intAggGetter)
+
+	agg := NewGroupedAggregator([]AggState{&sa, &sumAgg}, gbyFields, hf)
+
+	iter, _ := agg.Iterator(tid)
+	fields := []FieldType{
+		{"name", "", StringType},
+		{"address", "", StringType},
+		{"count", "", IntType},
+		{"sum", "", IntType},
+	}
+	outt1 := Tuple{TupleDesc{fields},
+		[]DBValue{
+			StringField{"sam"},
+			StringField{"mit"},
+			IntField{1},
+			IntField{25},
+		},
+		nil,
+	}
+	outt2 := Tuple{
+		TupleDesc{fields},
+		[]DBValue{
+			StringField{"hoang"},
+			StringField{"kbang"},
+			IntField{2},
+			IntField{1998},
+		},
+		nil,
+	}
+	outt3 := Tuple{
+		TupleDesc{fields},
+		[]DBValue{
+			StringField{"hoang"},
+			StringField{"saigon"},
+			IntField{1},
+			IntField{999},
+		},
+		nil,
+	}
+	ts := []*Tuple{&outt1, &outt2, &outt3}
+	match := CheckIfOutputMatches(iter, ts)
+	if !match {
+		t.Fail()
+	}
+}

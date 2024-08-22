@@ -69,7 +69,6 @@ func (a *Aggregator) Iterator(tid TransactionID) (func() (*Tuple, error), error)
 	}
 	if childIter == nil {
 		return nil, GoDBError{MalformedDataError, "child iter unexpectedly nil"}
-
 	}
 	// the map that stores the aggregation state of each group
 	aggState := make(map[any]*[]AggState)

@@ -224,3 +224,49 @@ func TestNumPage(t *testing.T) {
 	fmt.Println(hf.NumPages())
 	_ = hf
 }
+
+func makeTestVarsByHoang() (TupleDesc, Tuple, Tuple, Tuple, *HeapFile, *BufferPool, TransactionID) {
+	var td = TupleDesc{Fields: []FieldType{
+		{Fname: "name", Ftype: StringType},
+		{Fname: "address", Ftype: StringType},
+		{Fname: "age", Ftype: IntType},
+	}}
+
+	var t1 = Tuple{
+		Desc: td,
+		Fields: []DBValue{
+			StringField{"sam"},
+			StringField{"mit"},
+			IntField{25},
+		}}
+
+	var t2 = Tuple{
+		Desc: td,
+		Fields: []DBValue{
+			StringField{"hoang"},
+			StringField{"kbang"},
+			IntField{999},
+		}}
+
+	var t3 = Tuple{
+		Desc: td,
+		Fields: []DBValue{
+			StringField{"hoang"},
+			StringField{"saigon"},
+			IntField{999},
+		}}
+
+	bp := NewBufferPool(3)
+	os.Remove(TestingFile)
+	hf, err := NewHeapFile(TestingFile, &td, bp)
+	if err != nil {
+		print("ERROR MAKING TEST VARS, BLARGH")
+		panic(err)
+	}
+
+	tid := NewTID()
+	bp.BeginTransaction(tid)
+
+	return td, t1, t2, t3, hf, bp, tid
+
+}

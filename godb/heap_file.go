@@ -190,7 +190,10 @@ func (f *HeapFile) insertTuple(t *Tuple, tid TransactionID) error {
 	heapPage := newHeapPage(f.tupleDesc, f.NumPages(), f)
 	heapPage.insertTuple(t)
 	var page Page = heapPage
-	f.flushPage(&page)
+	err := f.flushPage(&page)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
