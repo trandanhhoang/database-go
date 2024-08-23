@@ -1,6 +1,7 @@
 package godb
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -23,11 +24,43 @@ func TestSimpleQuery(t *testing.T) {
 	if err != nil {
 		t.Fatalf("no table t2, %s", err.Error())
 	}
+	iter, _ := hf1.Iterator(NewTID())
+	for {
+		tup, _ := iter()
+		if tup == nil {
+			break
+		}
+		fmt.Printf("%v", tup.Fields)
+	}
+	print("------")
+	iter, _ = hf2.Iterator(NewTID())
+	for {
+		tup, _ := iter()
+		if tup == nil {
+			break
+		}
+		fmt.Printf("%v", tup.Fields)
+	}
 	f_name := FieldExpr{FieldType{"name", "", StringType}}
 	joinOp, err := NewStringJoin(hf1, &f_name, hf2, &f_name, 1000)
 	if err != nil {
 		t.Fatalf("failed to construct join, %s", err.Error())
 	}
+
+	iter, err = joinOp.Iterator(NewTID())
+	cnt := 0
+	for {
+		tup, err := iter()
+		if err != nil {
+			t.Errorf(err.Error())
+			return
+		}
+		if tup == nil {
+			break
+		}
+		cnt++
+	}
+	print(cnt)
 	f_age := FieldExpr{FieldType{"age", "t", IntType}}
 	e_const := ConstExpr{IntField{30}, IntType}
 	filterOp, err := NewIntFilter(&e_const, OpGt, &f_age, joinOp)

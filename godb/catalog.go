@@ -152,8 +152,7 @@ func (c *Catalog) addTable(named string, desc TupleDesc) error {
 }
 
 func (c *Catalog) tableNameToFile(tableName string) string {
-	return c.rootPath + "/" + tableName + ".dat"
-
+	return tableName + ".dat"
 }
 func (c *Catalog) GetTable(named string) (DBFile, error) {
 	t := c.tableMap[named]

@@ -58,8 +58,8 @@ func TestParseEasy(t *testing.T) {
 		"select name from (select x.name from (select t.name from t) x)y order by name asc",
 		"select age, count(*) from t group by age",
 	}
-	save := false        //set save to true to save the output of the current test run as the correct answer
-	printOutput := false //print the result set during testing
+	save := false       //set save to true to save the output of the current test run as the correct answer
+	printOutput := true //print the result set during testing
 
 	bp := NewBufferPool(10)
 	err := MakeTestDatabaseEasy(bp)

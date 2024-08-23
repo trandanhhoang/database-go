@@ -186,4 +186,16 @@ SELECT name, age, salary
   - If you don't capture idx & expr here. It will use the last one for all closure method
     - Because closure just capture the reference, not the value.
 
-## Limit
+## Limit (Implement - easy one)
+
+## Run a simple query test
+
+- SELECT COUNT(\*) FROM t, t2 WHERE t.name = t2.name AND t.age > 30.
+
+- I stuck when work with file, bp save file with name "t" and "t2", but with catalog, file name become ".//t" and ".//t2". So I need an hour to debug and fixed it.
+- After fixing bug above, I passed this test.
+
+## Query Parser
+
+- select name,age,getsubstr(epochtodatetimestring(epoch() - age*365*24*60*60),24,4) birthyear from t"
+- The first test. I failed, let find the reason.

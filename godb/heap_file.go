@@ -256,7 +256,8 @@ func (f *HeapFile) Iterator(tid TransactionID) (func() (*Tuple, error), error) {
 	j := 0
 
 	return func() (*Tuple, error) {
-		for i < f.NumPages() {
+		page := f.NumPages()
+		for i < page {
 			page, err := f.bufPool.GetPage(f, i, tid, ReadPerm)
 			if err != nil {
 				return nil, err
