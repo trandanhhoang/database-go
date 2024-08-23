@@ -243,3 +243,5 @@ SELECT name, age, salary
   - I fix the project_op.go. I passed test 3 now, but i need to confirm the test at project_op_test and test 1,2 don't fail again.
 
 - Great, everything pass.
+- The fourth test, I fail because TupleDesc with TableQualifier is not "t"
+  - I will end this lab from here. I don't want to deal with this anymore. I want to learn about transaction, lock, .... So I will move to lab 3. If lab 3 still stuck by this error, I will resolve it then.
