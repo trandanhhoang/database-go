@@ -6,6 +6,7 @@
 ## Introduction
 
 - Base on labs of [course 6.5830/6.5831](http://dsg.csail.mit.edu/6.5830/).
+- Git repository: https://github.com/MIT-DB-Class/go-db-hw-2023
 
 - GoDB consists of:
   - Structures that represent fields, tuples, and tuple schemas;
