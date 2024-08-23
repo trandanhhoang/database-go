@@ -98,10 +98,25 @@ func (p *Project) Iterator(tid TransactionID) (func() (*Tuple, error), error) {
 				distinctMap[tuple.tupleKey()] = 1
 			}
 
-			return &Tuple{
+			// handle for case column not in field
+			res := &Tuple{
 				Desc:   *p.Descriptor(),
-				Fields: tuple.Fields,
-			}, nil
+				Fields: make([]DBValue, len(p.selectFields)),
+			}
+			if len(tuple.Fields) != len(p.selectFields) {
+				idxForOldTupe := 0
+				for idx, expr := range p.selectFields {
+					if idxForOldTupe > len(tuple.Desc.Fields) && tuple.Desc.Fields[idxForOldTupe].Fname == res.Desc.Fields[idx].Fname {
+						res.Fields[idx] = tuple.Fields[idxForOldTupe]
+						idxForOldTupe += 1
+					} else {
+						val, _ := expr.EvalExpr(tuple)
+						res.Fields[idx] = val
+					}
+				}
+			}
+
+			return res, nil
 		}
 		return nil, nil
 	}, nil

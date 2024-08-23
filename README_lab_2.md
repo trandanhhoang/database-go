@@ -199,3 +199,8 @@ SELECT name, age, salary
 
 - select name,age,getsubstr(epochtodatetimestring(epoch() - age*365*24*60*60),24,4) birthyear from t"
 - The first test. I failed, let find the reason.
+  - I can't get the birthday, we need fix project_op.go
+  - It still error, because this lab is created from 2023, so the result is not match
+  - After update the result file. New error come from tuple.go
+    - Tuple equal(Tuple) method no need to compare 2 RID
+  - DONE

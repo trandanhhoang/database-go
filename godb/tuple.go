@@ -228,7 +228,7 @@ func readTupleFrom(b *bytes.Buffer, desc *TupleDesc) (*Tuple, error) {
 // the [TupleDesc.equals] method, but fields can be compared directly with equality
 // operators.
 func (t1 *Tuple) equals(t2 *Tuple) bool {
-	return t1.Desc.equals(&t2.Desc) && reflect.DeepEqual(t1.Fields, t2.Fields) && t1.Rid == t2.Rid
+	return t1.Desc.equals(&t2.Desc) && reflect.DeepEqual(t1.Fields, t2.Fields)
 }
 
 // Merge two tuples together, producing a new tuple with the fields of t2 appended to t1.
@@ -313,15 +313,12 @@ func (t *Tuple) compareField(t2 *Tuple, field Expr) (orderByState, error) {
 // do match on TableQualifier (e.g., a field  t1.name in fields should match an
 // entry t2.name in t, but only if there is not an entry t1.name in t)
 func (t *Tuple) project(fields []FieldType) (*Tuple, error) {
-	var res = new(Tuple)
+	var res = &Tuple{}
 	for _, field := range fields {
 		// Tìm vị trí của trường tương ứng trong t.Desc.Fields
-		matchIdx, err := findFieldInTd(field, &t.Desc)
-		if err != nil {
-			return nil, err
-		}
+		matchIdx, _ := findFieldInTd(field, &t.Desc)
 		if matchIdx == -1 {
-			log.Println("need check here")
+			// log.Println("need check here")
 			continue
 		}
 		res.Fields = append(res.Fields, t.Fields[matchIdx])
