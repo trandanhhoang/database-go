@@ -218,7 +218,9 @@ SELECT name, age, salary
     - Fix in project_op, I passed this test
 
 - The third test, I think I will pass in the first try.
+
   - Sadly, I fail, but I know the reason.
+
   ```go
   func (f *FuncExpr) GetExprType() FieldType {
     fType, exists := funcs[f.op]
@@ -236,5 +238,8 @@ SELECT name, age, salary
   return FieldType{ft.Fname, ft.TableQualifier, fType.outType}
   }
   ```
+
   - This method is a reason. It want (min + max), but the result is just max. So I can just return the max -> FAIL
   - I fix the project_op.go. I passed test 3 now, but i need to confirm the test at project_op_test and test 1,2 don't fail again.
+
+- Great, everything pass.

@@ -212,7 +212,7 @@ func TestParseEasy(t *testing.T) {
 }
 
 func byPass(qNo int) bool {
-	for _, b := range []int{1, 2} {
+	for _, b := range []int{} {
 		if b == qNo {
 			return true
 		}
