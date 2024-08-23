@@ -184,5 +184,6 @@ SELECT name, age, salary
   ```
 
   - If you don't capture idx & expr here. It will use the last one for all closure method
+    - Because closure just capture the reference, not the value.
 
 ## Limit
