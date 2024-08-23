@@ -47,7 +47,7 @@ func TestParseEasy(t *testing.T) {
 	var queries []string = []string{
 		"select name,age,getsubstr(epochtodatetimestring(epoch() - age*365*24*60*60),24,4) birthyear from t",
 		"select sum(age + 10) , sum(age) from t",
-		// "select min(age) + max(age) from t",
+		"select min(age) + max(age) from t",
 		// "select * from t limit 1+2",
 		// "select t.name, t.age from t join t2 on t.name = t2.name, t2 as t3 where t.age < 50 and t3.age = t.age order by t.age asc, t.name asc",
 		// "select sq(sq(5)) from t",
@@ -212,7 +212,7 @@ func TestParseEasy(t *testing.T) {
 }
 
 func byPass(qNo int) bool {
-	for _, b := range []int{1, 4} {
+	for _, b := range []int{1} {
 		if b == qNo {
 			return true
 		}

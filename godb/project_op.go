@@ -99,11 +99,11 @@ func (p *Project) Iterator(tid TransactionID) (func() (*Tuple, error), error) {
 			}
 
 			// handle for case column not in field
-			res := &Tuple{
-				Desc:   *p.Descriptor(),
-				Fields: make([]DBValue, len(p.selectFields)),
-			}
 			if len(tuple.Fields) != len(p.selectFields) {
+				res := &Tuple{
+					Desc:   *p.Descriptor(),
+					Fields: make([]DBValue, len(p.selectFields)),
+				}
 				idxForOldTupe := 0
 				for idx, expr := range p.selectFields {
 					if idxForOldTupe > len(tuple.Desc.Fields) && tuple.Desc.Fields[idxForOldTupe].Fname == res.Desc.Fields[idx].Fname {
@@ -114,9 +114,11 @@ func (p *Project) Iterator(tid TransactionID) (func() (*Tuple, error), error) {
 						res.Fields[idx] = val
 					}
 				}
+				return res, nil
 			}
-
-			return res, nil
+			// HF
+			tuple.Desc = *p.Descriptor()
+			return tuple, nil
 		}
 		return nil, nil
 	}, nil

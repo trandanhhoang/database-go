@@ -212,3 +212,6 @@ SELECT name, age, salary
     - In tuple after agg: Fname = sum(t.age)0, Fname = sum(t.age)1
   - How can I resolve this error ?
     - It depend on the parser of this lab, I will try to read some code, if it take time. I will ignore it
+    - I check at file q2-easy-result.csv -> the columns actually: sum(age),sum(age). HF
+      - outputNames is sum(age), sum(age) -> Not error, we must adapt with it.
+    - Fix in project_op, I passed this test
