@@ -199,8 +199,16 @@ SELECT name, age, salary
 
 - select name,age,getsubstr(epochtodatetimestring(epoch() - age*365*24*60*60),24,4) birthyear from t"
 - The first test. I failed, let find the reason.
+
   - I can't get the birthday, we need fix project_op.go
   - It still error, because this lab is created from 2023, so the result is not match
   - After update the result file. New error come from tuple.go
     - Tuple equal(Tuple) method no need to compare 2 RID
   - DONE
+
+- The second test. Now I know why Descriptor is important.
+  - Query select sum(age + 10) , sum(age) from t
+    - In project: outputNames is sum(age), sum(age) -> first error
+    - In tuple after agg: Fname = sum(t.age)0, Fname = sum(t.age)1
+  - How can I resolve this error ?
+    - It depend on the parser of this lab, I will try to read some code, if it take time. I will ignore it
