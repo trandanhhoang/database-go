@@ -82,12 +82,20 @@ func (p *Project) Iterator(tid TransactionID) (func() (*Tuple, error), error) {
 		tuple, _ := ite()
 		for tuple != nil {
 			fieldTypes := make([]FieldType, len(p.selectFields))
-			for idx, expr := range p.selectFields {
-				fieldTypes[idx] = expr.GetExprType()
+
+			res := &Tuple{
+				Desc: *p.Descriptor(),
 			}
-			tuple, _ = tuple.project(fieldTypes)
+
+			for idx, expr := range p.selectFields {
+				val, _ := expr.EvalExpr(tuple)
+				fieldTypes[idx] = expr.GetExprType()
+				res.Fields = append(res.Fields, val)
+			}
+
+			// tuple, _ = tuple.project(fieldTypes)
 			// check in set
-			if p.isDistinct && distinctMap[tuple.tupleKey()] == 1 {
+			if p.isDistinct && distinctMap[res.tupleKey()] == 1 {
 				// try to get a new one
 				tuple, _ = ite()
 				continue
@@ -95,30 +103,10 @@ func (p *Project) Iterator(tid TransactionID) (func() (*Tuple, error), error) {
 
 			// set a new one
 			if p.isDistinct {
-				distinctMap[tuple.tupleKey()] = 1
+				distinctMap[res.tupleKey()] = 1
 			}
 
-			// handle for case column not in field
-			if len(tuple.Fields) != len(p.selectFields) {
-				res := &Tuple{
-					Desc:   *p.Descriptor(),
-					Fields: make([]DBValue, len(p.selectFields)),
-				}
-				idxForOldTupe := 0
-				for idx, expr := range p.selectFields {
-					if idxForOldTupe > len(tuple.Desc.Fields) && tuple.Desc.Fields[idxForOldTupe].Fname == res.Desc.Fields[idx].Fname {
-						res.Fields[idx] = tuple.Fields[idxForOldTupe]
-						idxForOldTupe += 1
-					} else {
-						val, _ := expr.EvalExpr(tuple)
-						res.Fields[idx] = val
-					}
-				}
-				return res, nil
-			}
-			// HF
-			tuple.Desc = *p.Descriptor()
-			return tuple, nil
+			return res, nil
 		}
 		return nil, nil
 	}, nil

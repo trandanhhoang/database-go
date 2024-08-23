@@ -207,6 +207,7 @@ SELECT name, age, salary
   - DONE
 
 - The second test. Now I know why Descriptor is important.
+
   - Query select sum(age + 10) , sum(age) from t
     - In project: outputNames is sum(age), sum(age) -> first error
     - In tuple after agg: Fname = sum(t.age)0, Fname = sum(t.age)1
@@ -215,3 +216,25 @@ SELECT name, age, salary
     - I check at file q2-easy-result.csv -> the columns actually: sum(age),sum(age). HF
       - outputNames is sum(age), sum(age) -> Not error, we must adapt with it.
     - Fix in project_op, I passed this test
+
+- The third test, I think I will pass in the first try.
+  - Sadly, I fail, but I know the reason.
+  ```go
+  func (f *FuncExpr) GetExprType() FieldType {
+    fType, exists := funcs[f.op]
+    //todo return err
+    if !exists {
+      return FieldType{f.op, "", IntType}
+    }
+    ft := FieldType{f.op, "", IntType}
+    for _, fe := range f.args {
+      fieldExpr, ok := (*fe).(*FieldExpr)
+      if ok {
+        ft = fieldExpr.GetExprType()
+      }
+    }
+  return FieldType{ft.Fname, ft.TableQualifier, fType.outType}
+  }
+  ```
+  - This method is a reason. It want (min + max), but the result is just max. So I can just return the max -> FAIL
+  - I fix the project_op.go. I passed test 3 now, but i need to confirm the test at project_op_test and test 1,2 don't fail again.
