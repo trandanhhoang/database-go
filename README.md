@@ -11,18 +11,21 @@
 - GoDB consists of:
 
   - In lab 1
-    - Structures that represent fields, tuples, and tuple schemas
-    - One or more access methods (e.g., heap files) that store relations on disk and provide a way to iterate through tuples of those relations
-    - A buffer pool that caches active tuples and pages in memory
+    - Structures that represent fields, tuples, page, file.
+    - One or more access methods (e.g., heap files, Btree) that store relations on disk and provide a way to iterate through tuples of those relations
+      - We do `heap file` here
+    - A Buffer Pool that caches active tuples and pages in memory
   - In lab 2
 
-    - A collection of operator classes (e.g., select, join, insert, delete, etc.) that process tuples
+    - Support select, join, insert, delete, agg (coun, sum, min, max, avg).
 
   - In lab 3
     - Buffer pool need to handles concurrency control and transactions
-    - Support Locking
+    - Support Share lock and Exclusive lock
+    - NO-FORCE, STEAL
 
-- `Lack of`: I will talk about all of the lack in README_lack_of.md
+- `Lack of`:
+  - Join just support nested-loop join, ignore merge join and index nested join.
   - Not support log-based recovery
     - by assume GoDB will not crash while processing a CommitTransaction or AbortTransaction => no need undo or redo any work
 
