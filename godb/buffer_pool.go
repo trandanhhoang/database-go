@@ -14,7 +14,6 @@ const (
 )
 
 type BufferPool struct {
-	// TODO: some code goes here
 	// max page can saved
 	numPages int
 	size     int
@@ -24,7 +23,6 @@ type BufferPool struct {
 
 // Create a new BufferPool with the specified number of pages
 func NewBufferPool(numPages int) *BufferPool {
-	// TODO: some code goes here
 	return &BufferPool{
 		numPages: numPages,
 		pages:    make(map[any]*Page),
@@ -34,7 +32,6 @@ func NewBufferPool(numPages int) *BufferPool {
 // Testing method -- iterate through all pages in the buffer pool
 // and flush them using [DBFile.flushPage]. Does not need to be thread/transaction safe
 func (bp *BufferPool) FlushAllPages() {
-	// TODO: some code goes here
 	for _, page := range bp.pages {
 		p := *page
 		file := *p.getFile()

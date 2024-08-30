@@ -48,7 +48,7 @@ func (f *HeapFile) NumPages() int {
 		filesize := int(fileInfo.Size())
 		return filesize / PageSize
 	}
-	return 0 //replace me
+	return 0
 }
 
 // Load the contents of a heap file from a specified CSV file.  Parameters are as follows:

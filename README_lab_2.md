@@ -27,6 +27,7 @@
 - Join: this opeator join tuples for its children that match equality predicate.
   - Implemented by nested loop join
   - Can be optimize with `sort merge join` or `hash join` -> pass TestBigJoinOptional
+  - Learn about joins: https://dsg.csail.mit.edu/6.5830/2023/lectures/lec11.pdf
 
 ## Aggregates (Implement)
 
@@ -245,3 +246,79 @@ SELECT name, age, salary
 - Great, everything pass.
 - The fourth test, I fail because TupleDesc with TableQualifier is not "t"
   - I will end this lab from here. I don't want to deal with this anymore. I want to learn about transaction, lock, .... So I will move to lab 3. If lab 3 still stuck by this error, I will resolve it then.
+
+## SQL Query Optimization. Why Is It So Hard To Get Right?
+
+- https://dsg.csail.mit.edu/6.5830/2023/lectures/lec10.pdf
+- Ví dụ, bạn có 1 câu query như sau,
+- SELECT Average(Rating) FROM reviews WHERE mid = 932 and Rating > 9
+- 1. Enumerate logically equivalent plans
+  - scan + filter | index mid | index rating
+  - bạn có thể filter có 2 cách để xử lý, SCAN + FILTER qua tất cả các record, hoặc dùng index ở cac column khac nhau.
+- 2. Enumerate all alternative physical query plans
+  - nghĩa là thứ tự select, join có thể hoán vị cho nhau
+- 3. Estimate the cost of each of the alternative query plan
+  - => 9 logic \* 36 physic = 324 alternative plans. We use `dynamic programming` to enumerating the entire plan.
+- 4. Run the plan with lowest estimated overall cost
+  - In general, there is not enough space in the catalogs to store summary statistics for each distinct attribute value
+  - Solution: histogram. thực sự thì mình chưa đọc đoạn này.
+
+## Estimating Costs
+
+- I/O times: cost of reading pages from mass storage
+- CPU time: cost of applying predicate and operating on tuple in memory
+- For a parallel database, the cost of redistributing/ shuffling rows must also be considered (EXTENDS - can ignore now)
+
+## Real example - which plan is cheaper.
+
+- Pre-condition:
+
+  - 1. Table `REVIEW` have field mid, date (order by date)
+  - 2. scan 100MB/second
+  - 3. CPU time = 0.1 μs (10^-6s)/row for `FILTER predicate`
+  - 4. CPU time = 0.1 μs (10^-6s)/row for `AVG predicate`
+  - 5. time Random disk I/O = 0.003 second per diskI/O
+
+- Query: SELECT Average(Rating) FROM reviews WHERE mid = 932
+
+  - scan + filter
+
+    - 100k pages. each pages have 100 records => 8 second
+    - filter is applied to 10M rows
+      - 100 rows matched => 1 second
+    - AVG apply for 100 rows -> ignore
+    - => 9 seconds
+
+  - index MID
+    - 100 rows are retrieved using `MID index` => .3 seconds
+    - Why: Khi dữ liệu không được sắp xếp theo MID, các bản ghi có mid = 932 có thể nằm rải rác ở nhiều nơi khác nhau trên đĩa.
+    - giả sử chúng ta cần đọc tối đa 100 page, vậy thì cần 0.3s (c4 - condition 4)
+
+- What happen if not 100 row, it becomse 10.000 rows
+  - now index need 30 second (check image query-predicate.png)
+
+## So sanh' cac loai. JOIN.
+
+- sort-merge join, index-nested join, nested loop join.
+
+### Examplle
+
+- SELECT \* FROM Reviews WHERE 7/1 < date < 7/31 AND rating > 9
+
+#### Precondition
+
+- Reviews: 1M records
+- 7/1 < date < 7/31: selectivity factor = 0.1 => 100.000 records
+- rating > 9: selectivity factor = 0.01 => 10.000 records
+
+#### tuỳ thuộc vào selectivity factor, mà các loại join có sự phù hợp khác nhau
+
+- If 2 predicate above are not correlated
+  - row matched = .1\*.01\*1M = 1000 rows
+- If 2 predicate above are correlated
+
+  - row matched = .1\*1M = 100000 rows
+
+- INL(0,0001 trở xuống)
+- NL (0,0001 - 0.001)
+- SM (từ 0.001 trở lên)

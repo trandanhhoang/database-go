@@ -242,6 +242,13 @@ func joinTuples(t1 *Tuple, t2 *Tuple) *Tuple {
 			Fields: t2.Fields,
 		}
 	}
+	if t2 == nil {
+		return &Tuple{
+			// combinedDesc là 1 con trỏ, nên cần de-reference nó bằng *
+			Desc:   t1.Desc,
+			Fields: t1.Fields,
+		}
+	}
 	combinedDesc := t1.Desc.merge(&t2.Desc)
 	combinedField := append(t1.Fields, t2.Fields...)
 	return &Tuple{
