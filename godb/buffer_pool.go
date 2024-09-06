@@ -69,6 +69,7 @@ func (bp *BufferPool) AbortTransaction(tid TransactionID) {
 	bp.mu.Lock()
 	defer bp.mu.Unlock()
 	for _, pgLock := range bp.mapPageLocksByTid[tid] {
+		// delete page with write perm
 		if pgLock.perm == WritePerm {
 			delete(bp.pages, pgLock.key)
 		}

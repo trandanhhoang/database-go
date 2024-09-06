@@ -193,14 +193,14 @@ func (f *HeapFile) insertTuple(t *Tuple, tid TransactionID) error {
 		return nil
 	}
 
-	//Create HeapPage, insert tuple, flush page
+	//Create HeapPage, flush page, then insert tuple with writeperm
 	heapPage := newHeapPage(f.tupleDesc, f.NumPages(), f)
-	heapPage.insertTuple(t)
 	var page Page = heapPage
 	err := f.flushPage(&page)
 	if err != nil {
 		return err
 	}
+	f.insertTuple(t, tid)
 	return nil
 }
 

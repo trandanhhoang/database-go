@@ -342,3 +342,57 @@ func (bp *BufferPool) CommitTransaction(tid TransactionID) {
           - lost update: TID 2 xử lý trên data cũ nếu đọc giá trị cũ
 
 - Chúng ta đã pass hết tất cả test trong locking_test.go
+
+- Exercise 2
+  - want us pass TestAttemptTransactionTwice, and TestTransaction{Commit, Abort}. DONE
+  - TestAbortEviction -> we fail
+- Let find the reason, we have method AbortTransaction like below
+
+  -
+
+  ```go
+  func (bp *BufferPool) AbortTransaction(tid TransactionID) {
+    bp.mu.Lock()
+    defer bp.mu.Unlock()
+    for _, pgLock := range bp.mapPageLocksByTid[tid] {
+      if pgLock.perm == WritePerm {
+        delete(bp.pages, pgLock.key)
+      }
+    }
+    // release lock
+    delete(bp.mapPageLocksByTid, tid)
+    bp.deleteWaitTidLocks(tid)
+  }
+  ```
+
+  - In buffer_pool.AbortTransaction() We have delete(bp.pages, pgLock.key), but change (insert records) still here. I think the perm is not WRITE
+
+    - After debug, the perm is not WRITE. But in heap_file.insertTuple(), I see the perm is WRITE.
+
+    ```go
+    func (f *HeapFile) insertTuple(t *Tuple, tid TransactionID) error {
+      numPages := f.NumPages()
+
+      for i := 0; i < numPages; i++ {
+        page, err := f.bufPool.GetPage(f, i, tid, WritePerm)
+        if err != nil {
+          return err
+        }
+        // ...
+      }}
+    ```
+
+    ```go
+      //Create HeapPage, insert tuple, flush page
+      heapPage := newHeapPage(f.tupleDesc, f.NumPages(), f)
+      heapPage.insertTuple(t)
+      var page Page = heapPage
+      err := f.flushPage(&page)
+      if err != nil {
+        return err
+      }
+      return nil
+    ```
+
+    - Because it falldown to the later handle in insertTuple(), the new page is created and I insertTuple without WRITE permission.
+      - I fix the method in commit "fix: fix inserTuple method". and pass the test.
