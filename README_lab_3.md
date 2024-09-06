@@ -169,3 +169,176 @@ func (lg *LockGrabber) run() {
 - The second test with `ReadPerm for tid 1` and `WritePerm for tid 2`
   - We fail here, because grabLock expected = False. Why ?
   - Now, we need learn 2PL (2 phase locking protocol in README.md)
+
+### After few days to learn about concurency, 2PL
+
+- I can answer the question above, just Read-Read have permission. All another pair (RW, WR, RR), the later TID will be blocked.
+
+### Handle concurrency
+
+- Vì chúng ta khoá theo page, nên hãy tạo 1 map[any]\*PageLock (với key any giống như pages ở trên, là 1 hash của file+pageNo). và value là loại khoá (share/read hay exclude/write)
+  - with pagelock is
+
+```go
+type PageLock struct {
+	page   *Page
+	pageNo int
+	perm   RWPerm
+}
+```
+
+- Nếu 2 transactions cùng đọc vào 1 page thì sao?, chúng ta nên dùng map[tid]map[any]\*PageLock
+- with any is key (heaphash of fromFile and pageNo)
+
+```go
+func (f *HeapFile) pageKey(pgNo int) any {
+	hH := heapHash{FileName: f.fromFile, PageNo: pgNo}
+	return hH
+}
+```
+
+#### implement get page
+
+#### debug time
+
+```bash
+go test -v -timeout 30s -run ^TestAcquireWriteReadLocksOnSamePage$ github.com/srmadden/godb > test_output.log 2>&1
+```
+
+#### If we don’t implement buffer_pool.CommitTransaction(), what happen ???
+
+- problem 1. test read-write will pass coincident, because the write later can’t access the lock because conflicted (map have 300 tids with pageLock)
+
+  - context: 1 page chứa được tối đa 102 record, có 300 record từ file CSV.
+  - Step
+    - step 1. load from cvs, ghi 300 record, chúng ta sẽ gặp
+      - 294 lần lỗi readPage = 102 (lỗi đọc page 0 full) + 96\*2 (lỗi đọc page 0 và page 1 full)
+      - Sau đó trong Map sẽ có 300 key của tid từ 1 → 300
+        - 102 key là list 1 phần tử
+        - 102 key là list 2 phần tử.
+        - 96 key là list 3 phần tử.
+        - 102+102*2+96*3 = **594 vòng lặp = 601-8+1(kiểm chứng bằng log)**
+    - Step 2:
+      - Read với tid 301 ở page 0, check xem trong map trên, cần 2 điều kiện để bị **conflict:** 1. tid đang nắm page 0 + 2. write perm.
+      - Bởi vì loadfromcsv toàn là read perm, nên chúng ta bỏ qua trương hợp conflict ở đây (nếu conflict, phải dùng graph để tránh bị deadlock)
+    - Step 3:
+      - Write với tid 302 ở page 1, check xem trong map trên, cần 2 điều kiện để bị **conflict:** 1. tid đang nắm page 0 + 2. write perm. => Đã bị conflict.
+      ```go
+      for bp.isConflicted(pageNo, tid, perm) {
+      		log.Println("do I reach here ??? ", *tid)
+      		err := bp.waitWhenConflict(pageNo, key, page, tid, perm)
+      		if err != nil {
+      			return err
+      		}
+      	}
+      ```
+      - Lúc này thì vòng lặp này sẽ diễn ra vô tận, cho tới khi test timeout → pass nhưng ko chuẩn.
+
+- problem 2. test write-tead, write hang forever, timeout after 30s.
+  - step 1: like step 1 above
+  - step 2: like step 3 above, hang forever when write.
+    ```go
+    func metaLockTester(t *testing.T, bp *BufferPool,
+    	tid1 TransactionID, file1 DBFile, pgNo1 int, perm1 RWPerm,
+    	tid2 TransactionID, file2 DBFile, pgNo2 int, perm2 RWPerm,
+    	expected bool) {
+    	// without remove in commit
+    	// read tid 1, write tid 2, will can pass
+    	// write tid 1, read tid 2, we can't reach the grabLock() below
+    	bp.GetPage(file1, pgNo1, tid1, perm1)
+    	grabLock(t, bp, tid2, file2, pgNo2, perm2, expected)
+    }
+    ```
+    - We can’t access method grabLock(t, bp, tid2, file2, pgNo2, perm2, expected), because bp.GetPage(…) hang forever.
+
+#### So we must implement commit to remove the mapPageLocksByTid map[TransactionID]map[any]\*PageLock // DBFile -> pageNo -> Page
+
+```go
+func (bp *BufferPool) CommitTransaction(tid TransactionID) {
+	log.Println("commit ", &tid)
+	bp.mu.Lock()
+	defer bp.mu.Unlock()
+
+	// loop through all page of the tid, flush if dirty, ignore if no change.
+	for _, pgLock := range bp.mapPageLocksByTid[tid] {
+		hp := (*pgLock.page).(*heapPage)
+		if !hp.isDirty() { // why dirty continue, where dirty is put here ?
+			// no dirty here
+			continue
+		}
+		hp.file.Lock()
+		if err := hp.file.flushPage(pgLock.page); err != nil {
+			panic(err)
+		}
+		hp.file.Unlock()
+	}
+	// release lock of that tid
+	delete(bp.mapPageLocksByTid, tid)
+	bp.deleteWaitTidLocks(tid)
+}
+```
+
+- Okay, we can think like this
+  - mu.lock → get page → map save PageLock with READ/WRITE PERM → mu.unlock
+  - commit → mu.lock → flush page→ mu.unlock.
+- So,
+
+  - Map for check conflicted.
+  - Mutex for ?
+    - let think what happen if mutex don’t join here (for 2 tid with same page)
+      - tid 1 for page 0 → get page → map save PageLock with READ PERM
+      - tid 2 for page 0 → get page → map save PageLock with WRITE PERM
+        - Ngay lúc này, cả 2 đều có thể pass method isConflicted() và được ghi vào map với 2 tid khác nhau cho cùng 1 page.
+          - Lỗi đã xảy ra.
+    - hệ quả có thể xảy ra là gì ?
+      - Lý thuyết, với n transaction, có 2^N khả năng tương tác( xung đột) giữa các transaction → bài toán NP-hard
+        - không có xung đột, toàn bộ xung đột vs nhau, 1 xung đột vs 2, … (3 transaction thì sẽ có 8 khả năng tương tác).
+        - **đọc ghi → đọc không chính xác**
+        - **ghi ghi → mất dữ liệu, trạng thái không nhất quán**
+        - **đọc đọc → thường ko có vấn đề, nhưng sẽ có vấn đề nếu đọc 1 transaction ko ổn định (cần xem lại)**
+      - **cách 1: Xử lý bằng 2PL → đảm bảo atomic và isolation → biến thể (strict và rigougous)**
+        - Cách làm:
+          - 1 pha đầu chỉ có thể thêm khoá, ko được giải phóng khoá.
+          - 1 pha đầu chỉ có thể giải phóng khoá, ko được thêm khoá
+        - Nhược điểm:
+          - deadlock → phải resolve, resolve như thế nào ?
+          - starve → hiệu suất kém
+        - Tại sao 2pl giải quyết được:
+          - dùng lock để các giao dịch ghi không bị can thiệp bởi tid khác, hay không được can thiệp vào các tid khác.
+        - Đối với DB của chúng ta, chúng ta yêu cầu đúng khoá, và không giải phóng khóa cho tới khi commit, là đã hoàn thành
+          - cần phải suy nghĩ sâu hơn, để biết để hiện thực 1 cách hoàn chỉnh, thì phải làm như thế nào, tại sao bài toán đơn giản mình đang giải ko cần quá phức tạp trong cách hiện thực.
+        - Ví dụ thực tế trong database của chúng ta
+          - bufferpool begin transaction với tid 1,
+            - heapfile insert records vào line cuối cùng của page 0
+              - yêu cầu bufferpool lấy page 0, permission write → EZ insert
+            - **heapfile** insert tiếp 1 record nữa.
+              - yêu cầu bufferpool lấy page 1, permission write. vậy là tid 1 đã nắm 2 page.
+          - Phải có tới tận lúc bp.CommitTransaction(tid) thì 2 page trên sẽ được flush → flush xong, mới được giải phóng khoá.
+        - Phân tích các biến thể.
+      - **cách 2: xử lý bằng order time**
+        - đọc, ghi: T1 ghi < T2 đọc → t1 phải bị rollback.
+        - ghi, ghi: T1 ghi < T2 ghi → t1 phải bị rollback.
+      - **cách 3: Optimistic concurency control (giả định ko có xung đột, ko cần khoá), gồm 2 phase → khá giống compare and swap.**
+        - (validate phase) khi kết thúc, kiểm tra có xung đột không → có thì huỷ bỏ, và thực hiện lại.
+        - (commit phase) ko có xung đột, flush.
+      - **Cách 4: MVCC (multiversion concurency control), lưu trữ nhiều phiên bản của dữ liệu để đọc và ghi mà ko bị lock lẫn nhau**
+        - phiên bản cũ: nếu ghi → tạo ra phiên bản mới. các tid khác có thể đọc phiên bản cũ này cho tới khi phiên bản mới ghi xong.
+        - phiên bản mới: Sau khi transaction hoàn thành, phiên bản mới sẽ trở thành phiên bản "hiện tại" mà các transaction mới sẽ đọc.
+        - MVCC giúp giảm thiểu các xung đột đọc-ghi và tăng hiệu suất trong các hệ thống có nhiều transaction đồng thời. PostgreSQL và MySQL InnoDB là hai ví dụ điển hình của DBMS sử dụng MVCC.
+      - **Cách 5: Serialize Snapshot Isolation, ignore.**
+    - Vậy DB chúng ta dùng cách 1, 2PL, chuyện gì sẽ xảy ra.
+      - **Ví dụ 1: 2 TID với WRITE PERMISSION.** 2 record mới được insert cho mỗi tid, ví dụ ban đầu page có record 1 duy nhất.
+        - Sau khi flush, 1 trong 2 record sẽ được thêm vào (chính xác phải là 3 record)
+      - **Ví dụ 2: TID 1 READ - TID 2 WRITE.**
+        - TID 1 đọc x = 100
+        - TID 2 xử lý với x = 150
+        - Lỗi có thể là gì ?
+          - dirty read, tính sai.+ inconsistency
+      - **Ví dụ 3: TID 1 WRITE - TID 2 READ.**
+        - TID 1 viết x.= 150
+        - TID 2 đọc với giá trị mới hoặc cũ.
+        - lỗi có thể là gì ?
+          - dirty read: TID xử lý trên giá trị mới mà TID 1 viết, rồi TID 1 rollback.
+          - lost update: TID 2 xử lý trên data cũ nếu đọc giá trị cũ
+
+- Chúng ta đã pass hết tất cả test trong locking_test.go

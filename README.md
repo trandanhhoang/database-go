@@ -2,11 +2,10 @@
 
 - Implement GoDB, a basic database management system.
 - Learn how database work internally by implementing it.
-
-## Introduction
-
 - Base on [course 6.5830/6.5831](http://dsg.csail.mit.edu/6.5830/).
 - Git repository: https://github.com/MIT-DB-Class/go-db-hw-2023
+
+## Introduction
 
 - GoDB consists of:
 
@@ -36,7 +35,8 @@
 ref:
 
 - Concurrency Control and Recovery: https://dsg.csail.mit.edu/6.5830/2023/lectures/franklin97concurrency.pdf
-- https://dsg.csail.mit.edu/6.5830/2023/lectures/lec15.pdf
+- WRITE AHEAD LOG: https://dsg.csail.mit.edu/6.5830/2023/lectures/lec15.pdf
+- Two-phase Locking Recap, Optimistic Concurrency Control: https://dsg.csail.mit.edu/6.5830/2023/lectures/lec13.pdf
 
 ### Transaction schedule
 

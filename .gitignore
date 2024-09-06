@@ -20,5 +20,7 @@
 # Go workspace file
 go.work
 
+*test_output.log
+
 # 
 .DS_Store

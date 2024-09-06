@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -61,7 +62,10 @@ func (f *HeapFile) NumPages() int {
 func (f *HeapFile) LoadFromCSV(file *os.File, hasHeader bool, sep string, skipLastField bool) error {
 	scanner := bufio.NewScanner(file)
 	cnt := 0
+	counter := 0
 	for scanner.Scan() {
+		counter += 1
+		log.Println(counter)
 		line := scanner.Text()
 		fields := strings.Split(line, sep)
 		if skipLastField {
@@ -116,13 +120,15 @@ func (f *HeapFile) LoadFromCSV(file *os.File, hasHeader bool, sep string, skipLa
 				(*f).flushPage(pg)
 				(*pg).setDirty(false)
 			}
-
 		}
 
 		//commit frequently, to avoid all pages in BP being full
 		//todo fix
 		bp.CommitTransaction(tid)
 	}
+
+	log.Println("scanner ", scanner.Scan())
+
 	return nil
 }
 
@@ -171,7 +177,7 @@ func (f *HeapFile) insertTuple(t *Tuple, tid TransactionID) error {
 	numPages := f.NumPages()
 
 	for i := 0; i < numPages; i++ {
-		page, err := f.bufPool.GetPage(f, i, tid, ReadPerm)
+		page, err := f.bufPool.GetPage(f, i, tid, WritePerm)
 		if err != nil {
 			return err
 		}
@@ -180,6 +186,7 @@ func (f *HeapFile) insertTuple(t *Tuple, tid TransactionID) error {
 
 		_, err = heapPage.insertTuple(t) // just insert without flush
 		if err != nil {
+			log.Println("insertTuple error, maybe full", err)
 			// holy fuck, first time I put here "break" instead of continue, that make this function run in 20s and can not pass test TestSerializeVeryLargeHeapFile()
 			continue
 		}
