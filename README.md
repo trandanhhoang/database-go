@@ -10,17 +10,17 @@
 - GoDB consists of:
 
   - In lab 1
-    - Structures that represent fields, tuples, page, file.
-    - One or more access methods (e.g., heap files, Btree) that store relations on disk and provide a way to iterate through tuples of those relations
+    - Structures that represent `file`, `file` contain `pages` (with support of `buffer_pool`), page contains `records` (tuples,rows, ...)
+    - Support access methods (e.g., heap files, Btree) that store relations on disk and provide a way to iterate through tuples of those relations
       - We do `heap file` here
-    - A Buffer Pool that caches active tuples and pages in memory
+    - Buffer Pool that caches active tuples and pages in memory.
   - In lab 2
 
     - Support select, join, insert, delete, agg (coun, sum, min, max, avg).
 
   - In lab 3
     - Buffer pool need to handles concurrency control and transactions
-    - Support Share lock and Exclusive lock
+      - Rigorous Two phase locking (Share lock and Exclusive lock)
     - NO-FORCE, STEAL
 
 - `Lack of`:

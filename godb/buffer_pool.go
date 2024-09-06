@@ -66,6 +66,7 @@ func (bp *BufferPool) FlushAllPages() {
 // of the pages tid has dirtired will be on disk so it is sufficient to just
 // release locks to abort. You do not need to implement this for lab 1.
 func (bp *BufferPool) AbortTransaction(tid TransactionID) {
+	log.Println("abort ", &tid)
 	bp.mu.Lock()
 	defer bp.mu.Unlock()
 	for _, pgLock := range bp.mapPageLocksByTid[tid] {
@@ -85,7 +86,7 @@ func (bp *BufferPool) AbortTransaction(tid TransactionID) {
 // that the system will not crash while doing this, allowing us to avoid using a
 // WAL. You do not need to implement this for lab 1.
 func (bp *BufferPool) CommitTransaction(tid TransactionID) {
-	log.Println("commit ", &tid)
+	log.Println("commit ", *tid)
 	bp.mu.Lock()
 	defer bp.mu.Unlock()
 
@@ -96,11 +97,11 @@ func (bp *BufferPool) CommitTransaction(tid TransactionID) {
 			// no dirty here
 			continue
 		}
-		hp.file.Lock()
+		hp.file.mu.Lock()
 		if err := hp.file.flushPage(pgLock.page); err != nil {
 			panic(err)
 		}
-		hp.file.Unlock()
+		hp.file.mu.Unlock()
 	}
 	// release lock
 	delete(bp.mapPageLocksByTid, tid)
@@ -108,7 +109,7 @@ func (bp *BufferPool) CommitTransaction(tid TransactionID) {
 }
 
 func (bp *BufferPool) BeginTransaction(tid TransactionID) error {
-	log.Println("BeginTransaction tid", tid)
+	log.Println("BeginTransaction tid", *tid)
 	bp.mu.Lock()
 	defer bp.mu.Unlock()
 	return nil
@@ -126,7 +127,7 @@ func (bp *BufferPool) BeginTransaction(tid TransactionID) error {
 // one of the transactions in the deadlock]. You will likely want to store a list
 // of pages in the BufferPool in a map keyed by the [DBFile.pageKey].
 func (bp *BufferPool) GetPage(file DBFile, pageNo int, tid TransactionID, perm RWPerm) (*Page, error) {
-	log.Printf("GetPage tid %v, file %v page %v  ", &tid, file.(*HeapFile).fromFile, pageNo)
+	log.Printf("GetPage tid %v, %v page %v  ", *tid, file.(*HeapFile).fromFile, pageNo)
 	bp.mu.Lock()
 	defer bp.mu.Unlock()
 
@@ -176,7 +177,7 @@ func (bp *BufferPool) handleTransactionInGetPage(pageNo int, key any, page *Page
 	// this can loop forever
 	// why, because after the first write.
 	for bp.isConflicted(pageNo, tid, perm) {
-		log.Println("do I reach here ??? ", *tid)
+		log.Println("err: conflicted at tid", *tid)
 		err := bp.waitWhenConflict(pageNo, key, page, tid, perm)
 		if err != nil {
 			return err
@@ -232,7 +233,7 @@ func (bp *BufferPool) waitWhenConflict(pageNo int, key any, page *Page, tid Tran
 // tid 1 -> page 1 (read), page 2(read)
 // tid 2 -> page 2 (write)
 func (bp *BufferPool) isConflicted(pageNo int, tid TransactionID, perm RWPerm) bool {
-	log.Println("isConflicted ", *tid)
+	log.Println("check Conflicted", *tid)
 	bp.printMapTidLockPages()
 	isConflicted := false
 	// loop through other id to check
@@ -281,7 +282,7 @@ func (bp *BufferPool) deadLockPrevent(root TransactionID, tidMap map[Transaction
 }
 
 func (bp *BufferPool) deleteWaitTidLocks(tid TransactionID) {
-	log.Println("deleteWaitTidLocks ", &tid)
+	log.Println("deleteWaitTidLocks ", *tid)
 	for key, tidMap := range bp.waitTidLocks {
 		if tid == key {
 			continue

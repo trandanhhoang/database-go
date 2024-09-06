@@ -73,21 +73,12 @@
   - Attempt to re-acquire the mutex before trying to re-acquire the lock.
 
 - `I have no idea what I need to do`
+
   - let see how many test file we have NOT pass yet
     - deadlock_test.go, locking_test.go, transactions_test.go
     - lab2_extra_test.go (I fix some trivial method and it pass)
-- Let observation 3 test above.
 
-  - deadlock_test.go
-    - It's about 150 line with 3 method TestUpgradeWriteDeadlock, TestWriteWriteDeadlock, TestReadWriteDeadlock
-    - Because exercise 1 not talk about some test (not-unit-test), let ignore it now.
-  - locking_test.go
-    - 149 line, 16 method (8 method utils, 8 method test)
-    - Just read the last one and make decision.
-  - transactions_test.go
-    - 400 line, ...23 method, about 12 method test, 11 method util.
-
-- Observation exercise 2. After implement BeginX(), CommitX(), AbortX(). We should pass the locking_test.go
+- Observation exercise 2 in `lab3.md`. After implement BeginX(), CommitX(), AbortX(). We should pass the locking_test.go
   - TestAttemptTransactionTwice, and TestTransaction{Commit, Abort} unit tests and the TestAbortEviction system test will pass.
 - `Okay, we have know what test should be passed first, let see what locking_test.go do`
 
@@ -255,7 +246,7 @@ go test -v -timeout 30s -run ^TestAcquireWriteReadLocksOnSamePage$ github.com/sr
 
 ```go
 func (bp *BufferPool) CommitTransaction(tid TransactionID) {
-	log.Println("commit ", &tid)
+	log.Println("commit ", *tid)
 	bp.mu.Lock()
 	defer bp.mu.Unlock()
 
@@ -396,3 +387,35 @@ func (bp *BufferPool) CommitTransaction(tid TransactionID) {
 
     - Because it falldown to the later handle in insertTuple(), the new page is created and I insertTuple without WRITE permission.
       - I fix the method in commit "fix: fix inserTuple method". and pass the test.
+
+### Requirement of lab3.md
+
+- In section "2.7. Changes to Methods Outside of Buffer Pool" of lab3.md. "You may also wish to double check that your implementation of HeapFile.insertTuple() and HeapFile.deleteTuple() call setDirty() on any of the pages they access."
+  - I have not called setDirty() anywhere.
+- "Transactional locking will prevent methods like insertTuple or deleteTuple from being called on the same HeapPage object by two different transactions"
+
+- In section "2.9. Deadlocks and Aborts".
+  - We need to detect how deadlock can occur.
+    - 1. Implement timeout policy that abort a tid if not completed after a given period of time.
+    - 2. Implement cycle-detection dependency graph data structure (I do this)
+- `For a better solution, you may implement cycle-detection in a dependency graph data structure as shown in lecture. In this scheme, you would check for cycles in a dependency graph periodically or whenever you attempt to grant a new lock, and abort something if a cycle exists. After you have detected that a deadlock exists, you must decide how to improve the situation. Assume you have detected a deadlock while transaction t is waiting for a lock. In theory, you could abort all transactions that t is waiting for; this may result in a large amount of work being undone, but you can guarantee that t will make progress. Alternately, you may decide to abort t to give other transactions a chance to make progress. This means that the end-user will have to retry transaction t.`
+- Exercise 5: implement cycle detect.
+  - `You are not expected to automatically restart a transaction which fails due to a deadlock -- you can assume that higher-level code will take care of this.`
+  - Your code now should pass the Test{One, Two, Five}Threads and TestAllDirtyFails tests (which may also run for quite a long time depending on your implementation).
+  - At this point, you should have a recoverable database, in the sense that if the database system crashes (at a point other than CommitTransaction() or AbortTransaction()) or if the user explicitly aborts a transaction, the effects of any running transaction will not be visible after the system restarts (or the transaction aborts.) You may wish to verify this by running some transactions and explicitly killing the database server.
+
+### deadlock_test.go, transactions_test.go
+
+- Modify heap_file, buffer_pool to pass test.
+
+  - Test{One, Two, Five}Threads and TestAllDirtyFails
+  - all test in deadlock_test.go
+
+- Why heapfile need mutex ?
+
+  - 2 thread insert tuple at the same time (when page is full, or empty file) -> create 2 page at the same time.
+
+#### TestSingleThread fail
+
+- Because wrong implement at heap_file.insertTuple()
+  - fix at commit "fix: fix heap_file.insertTuple() pass TestSingleThread"

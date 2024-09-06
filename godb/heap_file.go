@@ -18,7 +18,7 @@ import (
 // database tables using the method [LoadFromCSV]
 type HeapFile struct {
 	bufPool *BufferPool
-	sync.Mutex
+	mu      sync.Mutex
 	// From constructor
 	tupleDesc *TupleDesc
 	fromFile  string
@@ -38,6 +38,7 @@ func NewHeapFile(fromFile string, td *TupleDesc, bp *BufferPool) (*HeapFile, err
 		bufPool:   bp,
 		tupleDesc: td,
 		fromFile:  fromFile,
+		mu:        sync.Mutex{},
 	}, nil //replace me
 }
 
@@ -65,7 +66,6 @@ func (f *HeapFile) LoadFromCSV(file *os.File, hasHeader bool, sep string, skipLa
 	counter := 0
 	for scanner.Scan() {
 		counter += 1
-		log.Println(counter)
 		line := scanner.Text()
 		fields := strings.Split(line, sep)
 		if skipLastField {
@@ -174,9 +174,11 @@ func (f *HeapFile) readPage(pageNo int) (*Page, error) {
 // worry about concurrent transactions modifying the Page or HeapFile.  We will
 // add support for concurrent modifications in lab 3.
 func (f *HeapFile) insertTuple(t *Tuple, tid TransactionID) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	numPages := f.NumPages()
-
-	for i := 0; i < numPages; i++ {
+	i := 0
+	for ; i < numPages; i++ {
 		page, err := f.bufPool.GetPage(f, i, tid, WritePerm)
 		if err != nil {
 			return err
@@ -194,13 +196,24 @@ func (f *HeapFile) insertTuple(t *Tuple, tid TransactionID) error {
 	}
 
 	//Create HeapPage, flush page, then insert tuple with writeperm
-	heapPage := newHeapPage(f.tupleDesc, f.NumPages(), f)
-	var page Page = heapPage
-	err := f.flushPage(&page)
+	heapPageForFlush := newHeapPage(f.tupleDesc, f.NumPages(), f)
+	var pageForFlush Page = heapPageForFlush
+	err := f.flushPage(&pageForFlush)
 	if err != nil {
 		return err
 	}
-	f.insertTuple(t, tid)
+	// insert into new page
+	page2, err := f.bufPool.GetPage(f, i, tid, WritePerm)
+	if err != nil {
+		return err
+	}
+
+	heapPage2 := (*page2).(*heapPage)
+
+	_, err = heapPage2.insertTuple(t) // just insert without flush
+	if err != nil {
+		log.Println("insertTuple error, maybe full", err)
+	}
 	return nil
 }
 
@@ -212,6 +225,8 @@ func (f *HeapFile) insertTuple(t *Tuple, tid TransactionID) error {
 // so you can supply any object you wish.  You will likely want to identify the
 // heap page and slot within the page that the tuple came from.
 func (f *HeapFile) deleteTuple(t *Tuple, tid TransactionID) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	for i := 0; i < f.NumPages(); i++ {
 		page, err := f.bufPool.GetPage(f, i, tid, ReadPerm)
 		if err != nil {
