@@ -289,7 +289,7 @@ func validateTransactions(t *testing.T, threads int) {
 				continue
 			}
 			if delCnt.Fields[0].(IntField).Value != 1 {
-				t.Errorf("Delete Op should return 1")
+				t.Errorf("Delete Op should return 1, tid %v", *tid)
 			}
 			iop := NewInsertOp(hf, &Singleton{writeTup, false})
 			iterIns, err := iop.Iterator(tid)

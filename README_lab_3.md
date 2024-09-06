@@ -419,3 +419,13 @@ func (bp *BufferPool) CommitTransaction(tid TransactionID) {
 
 - Because wrong implement at heap_file.insertTuple()
   - fix at commit "fix: fix heap_file.insertTuple() pass TestSingleThread"
+
+#### TestTwoThread fail
+
+- tid 4 and tid 5 is conflicted forever.
+- Because heap_file.Iterator() is getPage with tid4,tid5 both have `read perm`.
+  - then tid 4 and tid 5 is insert it too.
+  - conflict raise because: `WRITE 5 wait READ 4`.
+- How to solve this, I need to think.
+  - After debug, I see that deleteTuple need WritePerm too
+  - commit "fix: deleteTuple with WritePerm"

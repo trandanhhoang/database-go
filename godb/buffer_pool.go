@@ -233,7 +233,7 @@ func (bp *BufferPool) waitWhenConflict(pageNo int, key any, page *Page, tid Tran
 // tid 1 -> page 1 (read), page 2(read)
 // tid 2 -> page 2 (write)
 func (bp *BufferPool) isConflicted(pageNo int, tid TransactionID, perm RWPerm) bool {
-	log.Println("check Conflicted", *tid)
+	log.Printf("check conflict tid %v, perm %v", *tid, perm)
 	bp.printMapTidLockPages()
 	isConflicted := false
 	// loop through other id to check
@@ -300,7 +300,7 @@ func (bp *BufferPool) printMapTidLockPages() {
 	log.Println("len", len(bp.mapPageLocksByTid))
 	for tid, pageLocks := range bp.mapPageLocksByTid {
 		for _, pageLock := range pageLocks {
-			log.Printf("tid %v, pageNo %v, perm %v, key %v", *tid, pageLock.pageNo, pageLock.perm, pageLock.key)
+			log.Printf("printMapTidLockPages tid %v, pageNo %v, perm %v, key %v", *tid, pageLock.pageNo, pageLock.perm, pageLock.key)
 		}
 	}
 }

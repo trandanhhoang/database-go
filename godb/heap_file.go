@@ -3,6 +3,7 @@ package godb
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -174,6 +175,7 @@ func (f *HeapFile) readPage(pageNo int) (*Page, error) {
 // worry about concurrent transactions modifying the Page or HeapFile.  We will
 // add support for concurrent modifications in lab 3.
 func (f *HeapFile) insertTuple(t *Tuple, tid TransactionID) error {
+	log.Printf("tid %v want to insert tuple", *tid)
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	numPages := f.NumPages()
@@ -225,18 +227,21 @@ func (f *HeapFile) insertTuple(t *Tuple, tid TransactionID) error {
 // so you can supply any object you wish.  You will likely want to identify the
 // heap page and slot within the page that the tuple came from.
 func (f *HeapFile) deleteTuple(t *Tuple, tid TransactionID) error {
+	log.Printf("tid %v want to delete tuple", *tid)
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	for i := 0; i < f.NumPages(); i++ {
-		page, err := f.bufPool.GetPage(f, i, tid, ReadPerm)
-		if err != nil {
-			return err
-		}
-		heapPage := (*page).(*heapPage)
-		heapPage.deleteTuple(t.Rid)
-		return nil
+
+	rid, ok := t.Rid.(RecordID)
+	if !ok {
+		return errors.New("deleteTuple_cast_RecordId_error")
 	}
 
+	page, err := f.bufPool.GetPage(f, rid.PageNo, tid, WritePerm)
+	if err != nil {
+		return err
+	}
+	heapPage := (*page).(*heapPage)
+	heapPage.deleteTuple(t.Rid)
 	return nil //replace me
 }
 
