@@ -264,7 +264,8 @@ func (bp *BufferPool) isConflicted(pageNo int, tid TransactionID, perm RWPerm) b
 func (bp *BufferPool) deadLockPrevent(root TransactionID, tidMap map[TransactionID]struct{}, visitedMap map[TransactionID]bool, counter int) bool {
 	// log.Printf("deadLockPrevent tid %v,lenTid %v, tidMap %v cnt %v", *root, len(tidMap), tidMap, counter)
 	if _, ok := tidMap[root]; ok { // cycle detected
-		log.Panicf("cycle tid %v , tidMap %v cnt %v", *root, tidMap, counter)
+		bp.printWaitTidLock()
+		log.Printf("cycle tid %v, cnt %v", *root, counter)
 		return true
 	}
 	for tid := range tidMap {
@@ -274,7 +275,8 @@ func (bp *BufferPool) deadLockPrevent(root TransactionID, tidMap map[Transaction
 		}
 		visitedMap[tid] = true
 		if bp.deadLockPrevent(root, bp.waitTidLocks[tid], visitedMap, counter+1) {
-			log.Panicf("cycle tid %v , tidMap %v cnt %v", *root, tidMap, counter)
+			bp.printWaitTidLock()
+			log.Printf("cycle tid %v, cnt %v", *root, counter)
 			return true
 		}
 	}
@@ -301,6 +303,16 @@ func (bp *BufferPool) printMapTidLockPages() {
 	for tid, pageLocks := range bp.mapPageLocksByTid {
 		for _, pageLock := range pageLocks {
 			log.Printf("printMapTidLockPages tid %v, pageNo %v, perm %v, key %v", *tid, pageLock.pageNo, pageLock.perm, pageLock.key)
+		}
+	}
+}
+
+func (bp *BufferPool) printWaitTidLock() {
+	//for each to print it
+	log.Println("len", len(bp.waitTidLocks))
+	for tid, mapTids := range bp.waitTidLocks {
+		for key, value := range mapTids {
+			log.Printf("printWaitTidLock tid %v, tid2 %v, value %v", *tid, *key, value)
 		}
 	}
 }

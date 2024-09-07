@@ -181,7 +181,9 @@ func (f *HeapFile) insertTuple(t *Tuple, tid TransactionID) error {
 	numPages := f.NumPages()
 	i := 0
 	for ; i < numPages; i++ {
+		f.mu.Unlock()
 		page, err := f.bufPool.GetPage(f, i, tid, WritePerm)
+		f.mu.Lock()
 		if err != nil {
 			return err
 		}
@@ -205,7 +207,9 @@ func (f *HeapFile) insertTuple(t *Tuple, tid TransactionID) error {
 		return err
 	}
 	// insert into new page
+	f.mu.Unlock()
 	page2, err := f.bufPool.GetPage(f, i, tid, WritePerm)
+	f.mu.Lock()
 	if err != nil {
 		return err
 	}
@@ -235,8 +239,9 @@ func (f *HeapFile) deleteTuple(t *Tuple, tid TransactionID) error {
 	if !ok {
 		return errors.New("deleteTuple_cast_RecordId_error")
 	}
-
+	f.mu.Unlock()
 	page, err := f.bufPool.GetPage(f, rid.PageNo, tid, WritePerm)
+	f.mu.Lock()
 	if err != nil {
 		return err
 	}

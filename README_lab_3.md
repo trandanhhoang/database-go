@@ -424,8 +424,19 @@ func (bp *BufferPool) CommitTransaction(tid TransactionID) {
 
 - tid 4 and tid 5 is conflicted forever.
 - Because heap_file.Iterator() is getPage with tid4,tid5 both have `read perm`.
+
   - then tid 4 and tid 5 is insert it too.
   - conflict raise because: `WRITE 5 wait READ 4`.
-- How to solve this, I need to think.
   - After debug, I see that deleteTuple need WritePerm too
   - commit "fix: deleteTuple with WritePerm"
+
+- How to solve this, I need to think.
+  - I try to remove file.mu.lock in insert and delete, to see what I got
+    - cycle detected -> time to log waitTidLocks
+      - tid 4 wait 5, 5 wait 4.
+- Let think why when file insert/delete tuple with a tid, when getPage, we need unlock file (if not, how other Page can work)
+  - ask another question, why we need lock. For example, if 2 tid want to insert a page of a file (with empty page). `Both of them Create HeapPage, and flush it into disk`.
+    - if we lock, just 1 page is created when empty.
+- => So we need release lock each time we getPage(), and lock again after we got a page.
+- I run TestTwoThreads, and it still error
+- After add
