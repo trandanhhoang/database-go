@@ -25,7 +25,7 @@ func NewLockGrabber(bp *BufferPool, tid TransactionID, file DBFile, pgNo int, pe
 
 func (lg *LockGrabber) run() {
 	// Try to get the page from the buffer pool.
-	_, err := lg.bp.GetPage(lg.file, lg.pgNo, lg.tid, lg.perm)
+	_, err := lg.bp.GetPage(lg.file, lg.pgNo, lg.tid, lg.perm, ReadTask)
 	if err == nil {
 		lg.alock.Lock()
 		// try to acquire lock, but never reach this.
@@ -81,7 +81,7 @@ func metaLockTester(t *testing.T, bp *BufferPool,
 	// without remove in commit
 	// read tid 1, write tid 2, will can pass
 	// write tid 1, read tid 2, we can't reach the grabLock() below
-	bp.GetPage(file1, pgNo1, tid1, perm1)
+	bp.GetPage(file1, pgNo1, tid1, perm1, ReadTask)
 	grabLock(t, bp, tid2, file2, pgNo2, perm2, expected)
 }
 

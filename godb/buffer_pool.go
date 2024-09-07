@@ -2,7 +2,6 @@ package godb
 
 import (
 	"errors"
-	"fmt"
 	"log"
 	"math/rand"
 	"sync"
@@ -20,6 +19,14 @@ type RWPerm int
 const (
 	ReadPerm  RWPerm = iota
 	WritePerm RWPerm = iota
+)
+
+type TaskDo int
+
+const (
+	ReadTask   TaskDo = iota
+	InsertTask TaskDo = iota
+	DeleteTask TaskDo = iota
 )
 
 type BufferPool struct {
@@ -66,18 +73,10 @@ func (bp *BufferPool) FlushAllPages() {
 // of the pages tid has dirtired will be on disk so it is sufficient to just
 // release locks to abort. You do not need to implement this for lab 1.
 func (bp *BufferPool) AbortTransaction(tid TransactionID) {
-	log.Println("abort ", &tid)
+	log.Printf("abort %v", *tid)
 	bp.mu.Lock()
 	defer bp.mu.Unlock()
-	for _, pgLock := range bp.mapPageLocksByTid[tid] {
-		// delete page with write perm
-		if pgLock.perm == WritePerm {
-			delete(bp.pages, pgLock.key)
-		}
-	}
-	// release lock
-	delete(bp.mapPageLocksByTid, tid)
-	bp.deleteWaitTidLocks(tid)
+	bp.clearMap(tid)
 }
 
 // Commit the transaction, releasing locks. Because GoDB is FORCE/NO STEAL, none
@@ -126,7 +125,7 @@ func (bp *BufferPool) BeginTransaction(tid TransactionID) error {
 // unavailable, should block until the lock is free. If a deadlock occurs, abort
 // one of the transactions in the deadlock]. You will likely want to store a list
 // of pages in the BufferPool in a map keyed by the [DBFile.pageKey].
-func (bp *BufferPool) GetPage(file DBFile, pageNo int, tid TransactionID, perm RWPerm) (*Page, error) {
+func (bp *BufferPool) GetPage(file DBFile, pageNo int, tid TransactionID, perm RWPerm, task TaskDo) (*Page, error) {
 	log.Printf("GetPage tid %v, %v page %v  ", *tid, file.(*HeapFile).fromFile, pageNo)
 	bp.mu.Lock()
 	defer bp.mu.Unlock()
@@ -134,7 +133,7 @@ func (bp *BufferPool) GetPage(file DBFile, pageNo int, tid TransactionID, perm R
 	key := file.pageKey(pageNo)
 	// Nếu trang đã có trong bộ nhớ đệm, trả về trang đó
 	if page, ok := bp.pages[key]; ok {
-		if err := bp.handleTransactionInGetPage(pageNo, key, page, tid, perm); err != nil {
+		if err := bp.handleTransactionInGetPage(pageNo, key, page, tid, perm, task); err != nil {
 			return nil, err
 		}
 		return page, nil
@@ -165,24 +164,26 @@ func (bp *BufferPool) GetPage(file DBFile, pageNo int, tid TransactionID, perm R
 	// Thêm trang vào bộ nhớ đệm
 	bp.pages[key] = newPage
 
-	if err := bp.handleTransactionInGetPage(pageNo, key, newPage, tid, perm); err != nil {
+	if err := bp.handleTransactionInGetPage(pageNo, key, newPage, tid, perm, task); err != nil {
 		return nil, err
 	}
 
 	return newPage, nil
 }
 
-func (bp *BufferPool) handleTransactionInGetPage(pageNo int, key any, page *Page, tid TransactionID, perm RWPerm) error {
+func (bp *BufferPool) handleTransactionInGetPage(pageNo int, key any, page *Page, tid TransactionID, perm RWPerm, task TaskDo) error {
 	log.Println("handleTransactionInGetPage ", *tid)
 	// this can loop forever
 	// why, because after the first write.
 	for bp.isConflicted(pageNo, tid, perm) {
 		log.Println("err: conflicted at tid", *tid)
-		err := bp.waitWhenConflict(pageNo, key, page, tid, perm)
+		err := bp.waitWhenConflict(pageNo, key, page, tid, perm, task)
 		if err != nil {
 			return err
 		}
 	}
+
+	log.Println("CONFLICT IS RESOLVED || NO CONFLICT  ", *tid)
 
 	// No conflict, save map or upgrade lock exclusive
 	bp.saveMapAndUpgradeLock(pageNo, key, page, tid, perm)
@@ -203,11 +204,25 @@ func (bp *BufferPool) saveMapAndUpgradeLock(pageNo int, key any, page *Page, tid
 	}
 }
 
-func (bp *BufferPool) waitWhenConflict(pageNo int, key any, page *Page, tid TransactionID, perm RWPerm) error {
+func (bp *BufferPool) clearMap(tid TransactionID) {
+	for _, pgLock := range bp.mapPageLocksByTid[tid] {
+		// delete page with write perm
+		if pgLock.perm == WritePerm {
+			delete(bp.pages, pgLock.key)
+		}
+	}
+	// release lock
+	delete(bp.mapPageLocksByTid, tid)
+	bp.deleteWaitTidLocks(tid)
+}
+
+func (bp *BufferPool) waitWhenConflict(pageNo int, key any, page *Page, tid TransactionID, perm RWPerm, task TaskDo) error {
 	log.Println("waitWhenConflict ", *tid)
 	if bp.deadLockPrevent(tid, bp.waitTidLocks[tid], map[TransactionID]bool{}, 0) {
 		// bp.abortTransactionWithoutLock(tid)
-		fmt.Println(pageNo, "page ", *tid, "tid ", "deadlock")
+		log.Printf("Abort transaction tid %v, perm %v, task %v", *tid, perm, task)
+		// delete after abort transaction
+		bp.clearMap(tid)
 		time.Sleep(time.Duration(10+rand.Intn(10)) * time.Millisecond)
 		return errors.New("transaction is aborted")
 	}

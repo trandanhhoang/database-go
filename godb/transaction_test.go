@@ -168,18 +168,18 @@ func transactionTestSetUp(t *testing.T) (*BufferPool, *HeapFile, TransactionID, 
 
 func TestAttemptTransactionTwice(t *testing.T) {
 	bp, hf, tid1, tid2, _ := transactionTestSetUp(t)
-	bp.GetPage(hf, 0, tid1, ReadPerm)
-	bp.GetPage(hf, 1, tid1, WritePerm)
+	bp.GetPage(hf, 0, tid1, ReadPerm, ReadTask)
+	bp.GetPage(hf, 1, tid1, WritePerm, InsertTask)
 	bp.CommitTransaction(tid1)
 
-	bp.GetPage(hf, 0, tid2, WritePerm)
-	bp.GetPage(hf, 1, tid2, WritePerm)
+	bp.GetPage(hf, 0, tid2, WritePerm, ReadTask)
+	bp.GetPage(hf, 1, tid2, WritePerm, InsertTask)
 }
 
 func testTransactionComplete(t *testing.T, commit bool) {
 	bp, hf, tid1, tid2, t1 := transactionTestSetUp(t)
 
-	pg, _ := bp.GetPage(hf, 2, tid1, WritePerm)
+	pg, _ := bp.GetPage(hf, 2, tid1, WritePerm, InsertTask)
 	heapp := (*pg).(*heapPage)
 	heapp.insertTuple(&t1)
 	heapp.setDirty(true)
@@ -192,7 +192,7 @@ func testTransactionComplete(t *testing.T, commit bool) {
 
 	bp.FlushAllPages()
 
-	pg, _ = bp.GetPage(hf, 2, tid2, WritePerm)
+	pg, _ = bp.GetPage(hf, 2, tid2, WritePerm, InsertTask)
 	heapp = (*pg).(*heapPage)
 	iter := heapp.tupleIter()
 
@@ -333,6 +333,7 @@ func validateTransactions(t *testing.T, threads int) {
 	tup, _ := iter()
 
 	diff := tup.Fields[1].(IntField).Value - t2.Fields[1].(IntField).Value
+	time.Sleep(1000 * time.Millisecond)
 	if diff != int64(threads) {
 		t.Errorf("Expected #increments = %d, found %d", threads, diff)
 	}
@@ -377,7 +378,7 @@ func TestAllDirtyFails(t *testing.T) {
 		}
 	}
 
-	_, err := bp.GetPage(hf, 0, tid2, ReadPerm) // since bp capacity = 3, should return error due to all dirty pages
+	_, err := bp.GetPage(hf, 0, tid2, ReadPerm, ReadTask) // since bp capacity = 3, should return error due to all dirty pages
 	if err == nil {
 		t.Errorf("Expected error due to all dirty pages")
 	}

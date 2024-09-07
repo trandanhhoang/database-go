@@ -106,7 +106,7 @@ func TestBigJoinOptional(t *testing.T) {
 					// because CommitTransaction may not be implemented
 					// yet if this is called in lab 1 or 2
 					for j := 0; j < hf1.NumPages(); j++ {
-						pg, err := bp.GetPage(hf1, j, tid, ReadPerm)
+						pg, err := bp.GetPage(hf1, j, tid, ReadPerm, ReadTask)
 						if pg == nil || err != nil {
 							t.Fatal("page nil or error", err)
 						}
@@ -117,7 +117,7 @@ func TestBigJoinOptional(t *testing.T) {
 
 					}
 					for j := 0; j < hf2.NumPages(); j++ {
-						pg, err := bp.GetPage(hf2, j, tid, ReadPerm)
+						pg, err := bp.GetPage(hf2, j, tid, ReadPerm, ReadTask)
 						if pg == nil || err != nil {
 							t.Fatal("page nil or error", err)
 						}

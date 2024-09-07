@@ -102,7 +102,7 @@ func testSerializeN(t *testing.T, n int) {
 		// yet if this is called in lab 1 or 2
 		if i%10 == 0 {
 			for j := hf.NumPages() - 1; j > -1; j-- {
-				pg, err := bp.GetPage(hf, j, tid, ReadPerm)
+				pg, err := bp.GetPage(hf, j, tid, ReadPerm, ReadTask)
 				if pg == nil || err != nil {
 					t.Fatal("page nil or error", err)
 				}

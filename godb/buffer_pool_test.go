@@ -23,7 +23,7 @@ func TestGetPage(t *testing.T) {
 		// because CommitTransaction may not be implemented
 		// yet if this is called in lab 1 or 2
 		for i := 0; i < hf.NumPages(); i++ {
-			pg, err := bp.GetPage(hf, i, tid, ReadPerm)
+			pg, err := bp.GetPage(hf, i, tid, ReadPerm, ReadTask)
 			if pg == nil || err != nil {
 				t.Fatal("page nil or error", err)
 			}
@@ -38,12 +38,12 @@ func TestGetPage(t *testing.T) {
 	bp.BeginTransaction(tid)
 	//expect 6 pages
 	for i := 0; i < 6; i++ {
-		pg, err := bp.GetPage(hf, i, tid, ReadPerm)
+		pg, err := bp.GetPage(hf, i, tid, ReadPerm, ReadTask)
 		if pg == nil || err != nil {
 			t.Fatalf("failed to get page %d (err = %v)", i, err)
 		}
 	}
-	_, err := bp.GetPage(hf, 7, tid, ReadPerm)
+	_, err := bp.GetPage(hf, 7, tid, ReadPerm, ReadTask)
 	if err == nil {
 		t.Fatalf("No error when getting page 7 from a file with 6 pages.")
 	}

@@ -101,7 +101,7 @@ func TestDirtyBit(t *testing.T) {
 	bp.BeginTransaction(tid)
 	hf.insertTuple(&t1, tid)
 	hf.insertTuple(&t1, tid)
-	page, _ := bp.GetPage(hf, 0, tid, ReadPerm)
+	page, _ := bp.GetPage(hf, 0, tid, ReadPerm, ReadTask)
 	if !(*page).isDirty() {
 		t.Fatalf("Expected page to be dirty")
 	}
@@ -256,7 +256,7 @@ func TestHeapFileSize(t *testing.T) {
 	tid := NewTID()
 	bp.BeginTransaction(tid)
 	hf.insertTuple(&t1, tid)
-	page, err := bp.GetPage(hf, 0, tid, ReadPerm)
+	page, err := bp.GetPage(hf, 0, tid, ReadPerm, ReadTask)
 	if err != nil {
 		t.Fatalf("unexpected error, getPage, %s", err.Error())
 	}
@@ -442,12 +442,11 @@ func TestTupleProjectExtra(t *testing.T) {
 		{Fname: "name1", TableQualifier: "tq2", Ftype: StringType},
 	})
 
-
 	if err != nil {
 		t.Errorf("%v", err)
 	}
 
-if t2.Fields[0].(StringField).Value != "SFname1tq1" {
+	if t2.Fields[0].(StringField).Value != "SFname1tq1" {
 		t.Errorf("wrong match 0")
 	}
 

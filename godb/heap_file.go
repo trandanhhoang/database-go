@@ -112,7 +112,7 @@ func (f *HeapFile) LoadFromCSV(file *os.File, hasHeader bool, sep string, skipLa
 		// because CommitTransaction may not be implemented
 		// yet if this is called in lab 1 or 2
 		for j := 0; j < f.NumPages(); j++ {
-			pg, err := bp.GetPage(f, j, tid, ReadPerm)
+			pg, err := bp.GetPage(f, j, tid, ReadPerm, ReadTask)
 			if pg == nil || err != nil {
 				fmt.Println("page nil or error", err)
 				break
@@ -178,11 +178,12 @@ func (f *HeapFile) insertTuple(t *Tuple, tid TransactionID) error {
 	log.Printf("tid %v want to insert tuple", *tid)
 	f.mu.Lock()
 	defer f.mu.Unlock()
+
 	numPages := f.NumPages()
 	i := 0
 	for ; i < numPages; i++ {
 		f.mu.Unlock()
-		page, err := f.bufPool.GetPage(f, i, tid, WritePerm)
+		page, err := f.bufPool.GetPage(f, i, tid, WritePerm, InsertTask)
 		f.mu.Lock()
 		if err != nil {
 			return err
@@ -196,6 +197,7 @@ func (f *HeapFile) insertTuple(t *Tuple, tid TransactionID) error {
 			// holy fuck, first time I put here "break" instead of continue, that make this function run in 20s and can not pass test TestSerializeVeryLargeHeapFile()
 			continue
 		}
+		log.Println("insertTuple successfully tid &v", *tid)
 		return nil
 	}
 
@@ -208,7 +210,7 @@ func (f *HeapFile) insertTuple(t *Tuple, tid TransactionID) error {
 	}
 	// insert into new page
 	f.mu.Unlock()
-	page2, err := f.bufPool.GetPage(f, i, tid, WritePerm)
+	page2, err := f.bufPool.GetPage(f, i, tid, WritePerm, InsertTask)
 	f.mu.Lock()
 	if err != nil {
 		return err
@@ -216,10 +218,11 @@ func (f *HeapFile) insertTuple(t *Tuple, tid TransactionID) error {
 
 	heapPage2 := (*page2).(*heapPage)
 
-	_, err = heapPage2.insertTuple(t) // just insert without flush
+	_, err = heapPage2.insertTuple(t)
 	if err != nil {
 		log.Println("insertTuple error, maybe full", err)
 	}
+	log.Println("insertTuple successfully tid &v", *tid)
 	return nil
 }
 
@@ -240,13 +243,14 @@ func (f *HeapFile) deleteTuple(t *Tuple, tid TransactionID) error {
 		return errors.New("deleteTuple_cast_RecordId_error")
 	}
 	f.mu.Unlock()
-	page, err := f.bufPool.GetPage(f, rid.PageNo, tid, WritePerm)
+	page, err := f.bufPool.GetPage(f, rid.PageNo, tid, WritePerm, DeleteTask)
 	f.mu.Lock()
 	if err != nil {
 		return err
 	}
 	heapPage := (*page).(*heapPage)
 	heapPage.deleteTuple(t.Rid)
+	log.Println("deleteTuple successfully tid &v", *tid)
 	return nil //replace me
 }
 
@@ -290,7 +294,7 @@ func (f *HeapFile) Iterator(tid TransactionID) (func() (*Tuple, error), error) {
 	return func() (*Tuple, error) {
 		page := f.NumPages()
 		for i < page {
-			page, err := f.bufPool.GetPage(f, i, tid, ReadPerm)
+			page, err := f.bufPool.GetPage(f, i, tid, ReadPerm, ReadTask)
 			if err != nil {
 				return nil, err
 			}

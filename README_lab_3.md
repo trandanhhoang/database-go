@@ -439,4 +439,21 @@ func (bp *BufferPool) CommitTransaction(tid TransactionID) {
     - if we lock, just 1 page is created when empty.
 - => So we need release lock each time we getPage(), and lock again after we got a page.
 - I run TestTwoThreads, and it still error
-- After add
+
+  - Expected #increments = 2, found 0
+  - commit "feat: double check heapfile"
+
+- After debug, the reason is, tid is aborted.
+
+  - Should I create a python beauty to log for thread, should perm should go with thread, can I know this thread is for insert, or delete ?
+  - If I aborted, does transaction_test still right ?
+  - Why i meet error "t.Errorf("Expected #increments = %d, found %d", threads, diff)
+    - because insert failed.
+
+- First I add a TaskDo struct for debug/log, that help me abort from a insert or delete task.
+
+  - Log is not flush immediatly after abort, So I need sleep about 1 second for log work right.
+
+- When we abort a transaction, for another trans work, We must delete map PageLock and map WaitTid
+  - After implement clearMap(), I abort a tid, and all another tid work right, but test still don't pass
+  - commit "feat: implement clear map"

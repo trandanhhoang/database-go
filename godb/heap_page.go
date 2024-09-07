@@ -118,6 +118,7 @@ func (h *heapPage) insertTuple(t *Tuple) (recordID, error) {
 			rid.SlotNo = i
 			h.tuples[i].Rid = rid
 			h.usedSlots += 1
+			h.setDirty(true)
 			return rid, nil
 		}
 	}
@@ -132,6 +133,7 @@ func (h *heapPage) deleteTuple(rid recordID) error {
 		if tuple != nil && tuple.Rid == rid {
 			h.tuples[i] = nil
 			h.usedSlots -= 1
+			h.setDirty(true)
 			return nil
 		}
 	}
