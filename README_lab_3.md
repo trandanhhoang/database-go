@@ -472,3 +472,5 @@ func (bp *BufferPool) CommitTransaction(tid TransactionID) {
 
 - Now I just have 1 test not pass, let find the reason
   - commit -m "chore: only one test not pass"
+- Debug time, when insert 205 tuple. All dirty set "true" after flush, so I need fix when flush, update dirty = "false"
+- It pass, I will end the lab here.

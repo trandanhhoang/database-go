@@ -372,6 +372,7 @@ func TestAllDirtyFails(t *testing.T) {
 			t.Fatalf("Heap file should have at least one page after insertion.")
 		}
 	}
+	// tid 0 insert 205 tuple until page = 3 -> commit.
 	bp.CommitTransaction(tid) // make three clean pages
 
 	os.Remove(TestingFile2)

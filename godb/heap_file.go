@@ -270,6 +270,8 @@ func (f *HeapFile) flushPage(p *Page) error {
 	}
 
 	_, err = file.WriteAt(buffer.Bytes(), int64(hp.pageNo*PageSize))
+
+	(*p).(*heapPage).setDirty(false)
 	return err
 }
 
