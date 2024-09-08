@@ -463,3 +463,12 @@ func (bp *BufferPool) CommitTransaction(tid TransactionID) {
   - But the value of me just = 1000.
 - After debug, the reason is, delete_op and insert_op of me don't return error when transaction is aborted.
   - commit "feat: return error when abort transaction" fix the error, and pass this test
+
+#### TestFiveThread, TestAbortEviction pass
+
+#### deadlock_test.go all pass
+
+#### TestAllDirtyFails fail
+
+- Now I just have 1 test not pass, let find the reason
+  - commit -m "chore: only one test not pass"
