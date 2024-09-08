@@ -38,7 +38,10 @@ func (iop *InsertOp) Iterator(tid TransactionID) (func() (*Tuple, error), error)
 		tuple, _ := ite()
 		for tuple != nil {
 
-			iop.file.insertTuple(tuple, tid)
+			err := iop.file.insertTuple(tuple, tid)
+			if err != nil {
+				return nil, err
+			}
 			counter++
 			tuple, _ = ite()
 		}

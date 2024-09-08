@@ -455,5 +455,11 @@ func (bp *BufferPool) CommitTransaction(tid TransactionID) {
   - Log is not flush immediatly after abort, So I need sleep about 1 second for log work right.
 
 - When we abort a transaction, for another trans work, We must delete map PageLock and map WaitTid
+
   - After implement clearMap(), I abort a tid, and all another tid work right, but test still don't pass
-  - commit "feat: implement clear map"
+  - commit "feat: implement clearMap()"
+
+- The reason is diff = 1001 - 999 = 2
+  - But the value of me just = 1000.
+- After debug, the reason is, delete_op and insert_op of me don't return error when transaction is aborted.
+  - commit "feat: return error when abort transaction" fix the error, and pass this test

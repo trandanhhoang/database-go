@@ -37,7 +37,10 @@ func (dop *DeleteOp) Iterator(tid TransactionID) (func() (*Tuple, error), error)
 	return func() (*Tuple, error) {
 		tuple, _ := ite()
 		for tuple != nil {
-			dop.file.deleteTuple(tuple, tid)
+			err := dop.file.deleteTuple(tuple, tid)
+			if err != nil {
+				return nil, err
+			}
 			counter++
 			tuple, _ = ite()
 		}

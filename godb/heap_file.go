@@ -295,6 +295,7 @@ func (f *HeapFile) Iterator(tid TransactionID) (func() (*Tuple, error), error) {
 		page := f.NumPages()
 		for i < page {
 			page, err := f.bufPool.GetPage(f, i, tid, ReadPerm, ReadTask)
+			log.Printf("get thanh cong tid %v", *tid)
 			if err != nil {
 				return nil, err
 			}
@@ -313,6 +314,7 @@ func (f *HeapFile) Iterator(tid TransactionID) (func() (*Tuple, error), error) {
 			j = 0
 			i++
 		}
+		log.Printf("get thanh cong nil cmnr tid %v", *tid)
 		return nil, nil
 	}, nil
 

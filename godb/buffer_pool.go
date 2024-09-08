@@ -21,12 +21,12 @@ const (
 	WritePerm RWPerm = iota
 )
 
-type TaskDo int
+type TaskDo string
 
 const (
-	ReadTask   TaskDo = iota
-	InsertTask TaskDo = iota
-	DeleteTask TaskDo = iota
+	ReadTask   TaskDo = "READ TASK"
+	InsertTask TaskDo = "INSERT TASK"
+	DeleteTask TaskDo = "DELETE TASK"
 )
 
 type BufferPool struct {
@@ -108,7 +108,6 @@ func (bp *BufferPool) CommitTransaction(tid TransactionID) {
 }
 
 func (bp *BufferPool) BeginTransaction(tid TransactionID) error {
-	log.Println("BeginTransaction tid", *tid)
 	bp.mu.Lock()
 	defer bp.mu.Unlock()
 	return nil
@@ -126,7 +125,7 @@ func (bp *BufferPool) BeginTransaction(tid TransactionID) error {
 // one of the transactions in the deadlock]. You will likely want to store a list
 // of pages in the BufferPool in a map keyed by the [DBFile.pageKey].
 func (bp *BufferPool) GetPage(file DBFile, pageNo int, tid TransactionID, perm RWPerm, task TaskDo) (*Page, error) {
-	log.Printf("GetPage tid %v, %v page %v  ", *tid, file.(*HeapFile).fromFile, pageNo)
+	log.Printf("getpage by tid %v for task %v pageNo %v", *tid, task, pageNo)
 	bp.mu.Lock()
 	defer bp.mu.Unlock()
 
@@ -172,23 +171,18 @@ func (bp *BufferPool) GetPage(file DBFile, pageNo int, tid TransactionID, perm R
 }
 
 func (bp *BufferPool) handleTransactionInGetPage(pageNo int, key any, page *Page, tid TransactionID, perm RWPerm, task TaskDo) error {
-	log.Println("handleTransactionInGetPage ", *tid)
 	// this can loop forever
 	// why, because after the first write.
 	for bp.isConflicted(pageNo, tid, perm) {
-		log.Println("err: conflicted at tid", *tid)
 		err := bp.waitWhenConflict(pageNo, key, page, tid, perm, task)
 		if err != nil {
 			return err
 		}
 	}
-
-	log.Println("CONFLICT IS RESOLVED || NO CONFLICT  ", *tid)
-
 	// No conflict, save map or upgrade lock exclusive
 	bp.saveMapAndUpgradeLock(pageNo, key, page, tid, perm)
 
-	// delete something
+	// delete wait tid lock
 	bp.deleteWaitTidLocks(tid)
 	return nil
 }
@@ -249,7 +243,7 @@ func (bp *BufferPool) waitWhenConflict(pageNo int, key any, page *Page, tid Tran
 // tid 2 -> page 2 (write)
 func (bp *BufferPool) isConflicted(pageNo int, tid TransactionID, perm RWPerm) bool {
 	log.Printf("check conflict tid %v, perm %v", *tid, perm)
-	bp.printMapTidLockPages()
+	// bp.printMapTidLockPages()
 	isConflicted := false
 	// loop through other id to check
 	for t, pageLocks := range bp.mapPageLocksByTid {
@@ -279,7 +273,7 @@ func (bp *BufferPool) isConflicted(pageNo int, tid TransactionID, perm RWPerm) b
 func (bp *BufferPool) deadLockPrevent(root TransactionID, tidMap map[TransactionID]struct{}, visitedMap map[TransactionID]bool, counter int) bool {
 	// log.Printf("deadLockPrevent tid %v,lenTid %v, tidMap %v cnt %v", *root, len(tidMap), tidMap, counter)
 	if _, ok := tidMap[root]; ok { // cycle detected
-		bp.printWaitTidLock()
+		// bp.printWaitTidLock()
 		log.Printf("cycle tid %v, cnt %v", *root, counter)
 		return true
 	}
@@ -290,7 +284,7 @@ func (bp *BufferPool) deadLockPrevent(root TransactionID, tidMap map[Transaction
 		}
 		visitedMap[tid] = true
 		if bp.deadLockPrevent(root, bp.waitTidLocks[tid], visitedMap, counter+1) {
-			bp.printWaitTidLock()
+			// bp.printWaitTidLock()
 			log.Printf("cycle tid %v, cnt %v", *root, counter)
 			return true
 		}
