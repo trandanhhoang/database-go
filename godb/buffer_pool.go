@@ -266,10 +266,10 @@ func (bp *BufferPool) isConflicted(pageNo int, tid TransactionID, perm RWPerm) b
 
 // DFS, visited
 // 1 <- 2
-// |  /^
-// | /
-// v
-// 3
+// |  ^/^
+// | /  |
+// v    |
+// 3--->4
 func (bp *BufferPool) deadLockPrevent(root TransactionID, tidMap map[TransactionID]struct{}, visitedMap map[TransactionID]bool, counter int) bool {
 	// log.Printf("deadLockPrevent tid %v,lenTid %v, tidMap %v cnt %v", *root, len(tidMap), tidMap, counter)
 	if _, ok := tidMap[root]; ok { // cycle detected
