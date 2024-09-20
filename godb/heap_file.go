@@ -21,6 +21,7 @@ type HeapFile struct {
 	bufPool *BufferPool
 	mu      sync.Mutex
 	// From constructor
+
 	tupleDesc *TupleDesc
 	fromFile  string
 }
